@@ -27,7 +27,7 @@
  * GPIO on the UART CTS, and the first RX byte is known (for example, with the
  * Bluetooth Texas Instruments HCILL protocol), since the first RX byte will
  * always be lost. RTS will be asserted even while the UART is off in this mode
- * of operation. See msm_serial_hs_platform_data.wakeup_irq.
+ * of operation. See msm_serial_hs_platform_data.rx_wakeup_irq.
  */
 
 #include <linux/module.h>
@@ -159,10 +159,6 @@ struct msm_hs_port {
 	enum msm_hs_clk_req_off_state_e clk_req_off_state;
 
 	struct msm_hs_wakeup wakeup;
-#ifdef CONFIG_SERIAL_BCM_BT_LPM
-	/* optional callback to exit low power mode */
-	void (*exit_lpm_cb)(struct uart_port *);
-#endif
 	struct wake_lock dma_wake_lock;  
 
 	struct dentry *loopback_dir;
@@ -236,7 +232,6 @@ static DEVICE_ATTR(clock, S_IWUSR | S_IRUGO, show_clock, set_clock);
 
 static inline unsigned int use_low_power_wakeup(struct msm_hs_port *msm_uport)
 {
-	printk(KERN_INFO "msm_serial_hs: low_power_wakeup: %d\n", msm_uport->wakeup.irq);
 	return (msm_uport->wakeup.irq > 0);
 }
 
@@ -1014,9 +1009,7 @@ out:
 		schedule_delayed_work(&msm_uport->rx.flip_insert_work
 				      , msecs_to_jiffies(RETRY_TIMEOUT));
 	}
-        printk(KERN_INFO "msm_serial_hs: releasing rx_wake_lock after %d\n ms", HZ / 2);
 	wake_lock_timeout(&msm_uport->rx.wake_lock, HZ / 2);
-        
 	
 	spin_unlock_irqrestore(&uport->lock, flags);
 	if (flush < FLUSH_DATA_INVALID)
@@ -1026,11 +1019,6 @@ out:
 static void msm_hs_start_tx_locked(struct uart_port *uport )
 {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
-
-#ifdef CONFIG_SERIAL_BCM_BT_LPM
-	if (msm_uport->exit_lpm_cb)
-		msm_uport->exit_lpm_cb(uport);
-#endif
 
 	if (msm_uport->tx.tx_ready_int_en == 0) {
 		msm_uport->tx.tx_ready_int_en = 1;
@@ -1186,16 +1174,10 @@ static void msm_hs_handle_delta_cts_locked(struct uart_port *uport)
 
 static int msm_hs_check_clock_off(struct uart_port *uport)
 {
-
-int msm_hs_check_clock_off_locked(struct uart_port *uport)
-
 	unsigned long sr_status;
 	unsigned long flags;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	struct circ_buf *tx_buf = &uport->state->xmit;
-
-	printk(KERN_INFO "msm_serial_hs: entering check_clock_off_locked\n");
-
 
 	mutex_lock(&msm_uport->clk_mutex);
 	spin_lock_irqsave(&uport->lock, flags);
@@ -1203,7 +1185,6 @@ int msm_hs_check_clock_off_locked(struct uart_port *uport)
 	if (msm_uport->clk_state != MSM_HS_CLK_REQUEST_OFF ||
 	    !uart_circ_empty(tx_buf) || msm_uport->tx.dma_in_flight ||
 	    msm_uport->imr_reg & UARTDM_ISR_TXLEV_BMSK) {
-	printk(KERN_INFO "msm_serial_hs: dma in flight, clock on\n");
 		spin_unlock_irqrestore(&uport->lock, flags);
 		mutex_unlock(&msm_uport->clk_mutex);
 		return -1;
@@ -1223,13 +1204,11 @@ int msm_hs_check_clock_off_locked(struct uart_port *uport)
 		msm_uport->clk_req_off_state = CLK_REQ_OFF_RXSTALE_ISSUED;
 		msm_hs_write(uport, UARTDM_CR_ADDR, FORCE_STALE_EVENT);
 		mb();
-		printk(KERN_INFO "msm_serial_hs: writel not complete, retry\n");
 		spin_unlock_irqrestore(&uport->lock, flags);
 		mutex_unlock(&msm_uport->clk_mutex);
 		return 0;  
 	case CLK_REQ_OFF_RXSTALE_ISSUED:
 	case CLK_REQ_OFF_FLUSH_ISSUED:
-		printk(KERN_INFO "msm_serial_hs: stale or flushing, retry\n");
 		spin_unlock_irqrestore(&uport->lock, flags);
 		mutex_unlock(&msm_uport->clk_mutex);
 		return 0;  
@@ -1240,15 +1219,11 @@ int msm_hs_check_clock_off_locked(struct uart_port *uport)
 	if (msm_uport->rx.flush != FLUSH_SHUTDOWN) {
 		if (msm_uport->rx.flush == FLUSH_NONE)
 			msm_hs_stop_rx_locked(uport);
-	printk(KERN_INFO "msm_serial_hs: flush not shutdown, retry\n");
 
 		spin_unlock_irqrestore(&uport->lock, flags);
 		mutex_unlock(&msm_uport->clk_mutex);
 		return 0;  
 	}
-	#ifdef CONFIG_SERIAL_BCM_BT_LPM
-	msm_hs_start_rx_locked(uport);
-#endif
 
 	spin_unlock_irqrestore(&uport->lock, flags);
 
@@ -1264,7 +1239,6 @@ int msm_hs_check_clock_off_locked(struct uart_port *uport)
 		msm_uport->wakeup.ignore = 1;
 		enable_irq(msm_uport->wakeup.irq);
 	}
-	printk(KERN_INFO "msm_serial_hs: clk off and release dma_wake_lock\n");
 	wake_unlock(&msm_uport->dma_wake_lock);
 
 	spin_unlock_irqrestore(&uport->lock, flags);
@@ -1278,10 +1252,7 @@ static void hsuart_clock_off_work(struct work_struct *w)
 							clock_off_w);
 	struct uart_port *uport = &msm_uport->uport;
 
-	printk(KERN_INFO "msm_serial_hs: timer expired\n");
-
 	if (!msm_hs_check_clock_off(uport)) {
-		printk(KERN_INFO "msm_serial_hs: clock not off, restart timer\n");
 		hrtimer_start(&msm_uport->clk_off_timer,
 				msm_uport->clk_off_delay,
 				HRTIMER_MODE_REL);
@@ -1310,11 +1281,9 @@ static irqreturn_t msm_hs_isr(int irq, void *dev)
 	spin_lock_irqsave(&uport->lock, flags);
 
 	isr_status = msm_hs_read(uport, UARTDM_MISR_ADDR);
-	printk(KERN_INFO "msm_serial_hs: msm_hs_isr, got irq %d\n", irq);
 
 	
 	if (isr_status & UARTDM_ISR_RXLEV_BMSK) {
-                printk(KERN_INFO "msm_serial_hs: acquiring rx_wake_lock\n");
 		wake_lock(&rx->wake_lock);  
 		msm_uport->imr_reg &= ~UARTDM_ISR_RXLEV_BMSK;
 		msm_hs_write(uport, UARTDM_IMR_ADDR, msm_uport->imr_reg);
@@ -1375,36 +1344,7 @@ static irqreturn_t msm_hs_isr(int irq, void *dev)
 
 	return IRQ_HANDLED;
 }
-#ifdef CONFIG_SERIAL_BCM_BT_LPM
-void msm_hs_request_clock_off_locked(struct uart_port *uport) {
-	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 
-	if (msm_uport->clk_state == MSM_HS_CLK_ON) {
-		msm_uport->clk_state = MSM_HS_CLK_REQUEST_OFF;
-		msm_uport->clk_req_off_state = CLK_REQ_OFF_START;
-		msm_uport->imr_reg |= UARTDM_ISR_TXLEV_BMSK;
-		msm_hs_write(uport, UARTDM_IMR_ADDR, msm_uport->imr_reg);
-		/*
-		 * Complete device write before retuning back.
-		 * Hence mb() requires here.
-		 */
-		mb();
-	}
-}
-EXPORT_SYMBOL(msm_hs_request_clock_off_locked);
-#endif
-
-
-
-void msm_hs_request_clock_off(struct uart_port *uport) {
-	unsigned long flags;
-
-	spin_lock_irqsave(&uport->lock, flags);
-	msm_hs_request_clock_off_locked(uport);
-	spin_unlock_irqrestore(&uport->lock, flags);
-}
-EXPORT_SYMBOL(msm_hs_request_clock_off);
-#else
 void msm_hs_request_clock_off(struct uart_port *uport) {
 	unsigned long flags;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
@@ -1420,13 +1360,8 @@ void msm_hs_request_clock_off(struct uart_port *uport) {
 	spin_unlock_irqrestore(&uport->lock, flags);
 }
 EXPORT_SYMBOL(msm_hs_request_clock_off);
-
-#ifdef CONFIG_SERIAL_BCM_BT_LPM
-void msm_hs_request_clock_on_locked(struct uart_port *uport) 
-#else
 
 void msm_hs_request_clock_on(struct uart_port *uport)
-#endif
 {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	unsigned long flags;
@@ -1438,9 +1373,8 @@ void msm_hs_request_clock_on(struct uart_port *uport)
 
 	switch (msm_uport->clk_state) {
 	case MSM_HS_CLK_OFF:
-		
+		wake_lock(&msm_uport->dma_wake_lock);
 		disable_irq_nosync(msm_uport->wakeup.irq);
-		printk(KERN_INFO "msm_serial_hs: request clk on, acquire dma_wake_lock\n");
 		spin_unlock_irqrestore(&uport->lock, flags);
 		ret = clk_prepare_enable(msm_uport->clk);
 		if (ret) {
@@ -1644,11 +1578,6 @@ static int msm_hs_startup(struct uart_port *uport)
 	msm_hs_start_rx_locked(uport);
 
 	spin_unlock_irqrestore(&uport->lock, flags);
-
-	/* release wakelock after initialization */
-	wake_unlock(&msm_uport->dma_wake_lock);
-	printk(KERN_INFO "msm_serial_hs: releasing post-init dma_wake_lock\n");
-
 	ret = pm_runtime_set_active(uport->dev);
 	if (ret)
 		dev_err(uport->dev, "set active error:%d\n", ret);
@@ -1822,12 +1751,8 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	uport->irq = platform_get_irq(pdev, 0);
 	if (unlikely((int)uport->irq < 0))
 		return -ENXIO;
-#ifdef CONFIG_SERIAL_BCM_BT_LPM
-	if (pdata == NULL || pdata->wakeup_irq < 0)
-#else
 
 	if (pdata == NULL)
-#endif
 		msm_uport->wakeup.irq = -1;
 	else {
 		msm_uport->wakeup.irq = pdata->wakeup_irq;
@@ -1843,13 +1768,6 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 				dev_err(uport->dev, "Cannot configure"
 					"gpios\n");
 	}
-
-#ifdef CONFIG_SERIAL_BCM_BT_LPM
-	if (pdata == NULL)
-		msm_uport->exit_lpm_cb = NULL;
-	else
-		msm_uport->exit_lpm_cb = pdata->exit_lpm_cb;
-#endif
 
 	resource = platform_get_resource_byname(pdev, IORESOURCE_DMA,
 						"uartdm_channels");

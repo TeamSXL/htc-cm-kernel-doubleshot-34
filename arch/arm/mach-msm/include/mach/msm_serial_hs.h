@@ -25,22 +25,14 @@ struct msm_serial_hs_platform_data {
 	int (*gpio_config)(int);
 
 	
-		
-	#ifdef CONFIG_SERIAL_BCM_BT_LPM
-	void (*exit_lpm_cb)(struct uart_port *);
-#endif
+	unsigned char bt_wakeup_pin;	
+	unsigned char host_wakeup_pin;	
 };
 
+extern void imc_msm_hs_request_clock_on(struct uart_port *uport);
 unsigned int msm_hs_tx_empty(struct uart_port *uport);
 void msm_hs_request_clock_off(struct uart_port *uport);
 void msm_hs_request_clock_on(struct uart_port *uport);
 void msm_hs_set_mctrl(struct uart_port *uport,
 				    unsigned int mctrl);
-
-#ifdef CONFIG_SERIAL_BCM_BT_LPM
-/* uport->lock must be held when calling _locked() */
-extern void msm_hs_request_clock_off_locked(struct uart_port *uport);
-extern void msm_hs_request_clock_on_locked(struct uart_port *uport);
-#endif
-
 #endif
