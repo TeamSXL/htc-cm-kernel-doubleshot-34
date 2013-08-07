@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,11 +27,13 @@ struct z180_ringbuffer {
 };
 
 struct z180_device {
-	struct kgsl_device dev;    
+	struct kgsl_device dev;    /* Must be first field in this struct */
 	int current_timestamp;
 	int timestamp;
 	struct z180_ringbuffer ringbuffer;
 	spinlock_t cmdwin_lock;
 };
 
-#endif 
+int z180_dump(struct kgsl_device *, int);
+
+#endif /* __Z180_H */

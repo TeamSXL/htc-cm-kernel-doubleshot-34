@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,6 +124,7 @@
 #define CP_LOADSTATE_STATETYPE_SHIFT 0x00000000
 #define CP_LOADSTATE_EXTSRCADDR_SHIFT 0x00000002
 
+/* packet header building macros */
 #define cp_type0_packet(regindx, cnt) \
 	(CP_TYPE0_PKT | (((cnt)-1) << 16) | ((regindx) & 0x7FFF))
 
@@ -148,6 +149,10 @@
 #define type0_pkt_size(pkt) ((((pkt) >> 16) & 0x3FFF) + 1)
 #define type0_pkt_offset(pkt) ((pkt) & 0x7FFF)
 
+/*
+ * Check both for the type3 opcode and make sure that the reserved bits [1:7]
+ * and 15 are 0
+ */
 
 #define pkt_is_type3(pkt) \
 	((((pkt) & 0xC0000000) == CP_TYPE3_PKT) && \
@@ -156,15 +161,19 @@
 #define cp_type3_opcode(pkt) (((pkt) >> 8) & 0xFF)
 #define type3_pkt_size(pkt) ((((pkt) >> 16) & 0x3FFF) + 1)
 
+/* packet headers */
 #define CP_HDR_ME_INIT	cp_type3_packet(CP_ME_INIT, 18)
 #define CP_HDR_INDIRECT_BUFFER_PFD cp_type3_packet(CP_INDIRECT_BUFFER_PFD, 2)
 #define CP_HDR_INDIRECT_BUFFER_PFE cp_type3_packet(CP_INDIRECT_BUFFER_PFE, 2)
 
+/* dword base address of the GFX decode space */
 #define SUBBLOCK_OFFSET(reg) ((unsigned int)((reg) - (0x2000)))
 
+/* gmem command buffer length */
 #define CP_REG(reg) ((0x4 << 16) | (SUBBLOCK_OFFSET(reg)))
 
 
+/* Return 1 if the command is an indirect buffer of any kind */
 static inline int adreno_cmd_is_ib(unsigned int cmd)
 {
 	return (cmd == cp_type3_packet(CP_INDIRECT_BUFFER_PFE, 2) ||
@@ -173,4 +182,4 @@ static inline int adreno_cmd_is_ib(unsigned int cmd)
 		cmd == cp_type3_packet(CP_COND_INDIRECT_BUFFER_PFD, 2));
 }
 
-#endif	
+#endif	/* __ADRENO_PM4TYPES_H */

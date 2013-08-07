@@ -262,10 +262,13 @@ extern int rs690_mc_wait_for_idle(struct radeon_device *rdev);
  * rv515
  */
 struct rv515_mc_save {
+	u32 d1vga_control;
+	u32 d2vga_control;
 	u32 vga_render_control;
 	u32 vga_hdp_control;
+	u32 d1crtc_control;
+	u32 d2crtc_control;
 };
-
 int rv515_init(struct radeon_device *rdev);
 void rv515_fini(struct radeon_device *rdev);
 uint32_t rv515_mc_rreg(struct radeon_device *rdev, uint32_t reg);

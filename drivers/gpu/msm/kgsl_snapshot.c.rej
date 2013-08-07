@@ -1,0 +1,149 @@
+--- drivers/gpu/msm/kgsl_snapshot.c
++++ drivers/gpu/msm/kgsl_snapshot.c
+@@ -289,25 +316,15 @@
+ 	kfree(obj);
+ }
+ 
+-#if 0
+-int kgsl_snapshot_have_object(struct kgsl_device *device, unsigned int ptbase,
+-	unsigned int gpuaddr, unsigned int size)
+-{
+-	struct kgsl_snapshot_object *obj;
+-
+-	list_for_each_entry(obj, &device->snapshot_obj_list, node) {
+-		if (obj->ptbase != ptbase)
+-			continue;
+-
+-		if ((gpuaddr >= obj->gpuaddr) &&
+-			((gpuaddr + size) <= (obj->gpuaddr + obj->size)))
+-			return 1;
+-	}
+-
+-	return 0;
+-}
+-#endif
+-
++/* ksgl_snapshot_have_object - Return 1 if the object has been processed
++ *@device - the device that is being snapshotted
++ * @ptbase - the pagetable base of the object to freeze
++ * @gpuaddr - The gpu address of the object to freeze
++ * @size - the size of the object (may not always be the size of the region)
++ *
++ * Return 1 if the object is already in the list - this can save us from
++ * having to parse the sme thing over again.
++*/
+ int kgsl_snapshot_have_object(struct kgsl_device *device, unsigned int ptbase,
+ 	unsigned int gpuaddr, unsigned int size)
+ {
+@@ -516,15 +579,28 @@
+ }
+ EXPORT_SYMBOL(kgsl_snapshot_indexed_registers);
+ 
++/*
++ * kgsl_snapshot - construct a device snapshot
++ * @device - device to snapshot
++ * @hang - set to 1 if the snapshot was triggered following a hnag
++ * Given a device, construct a binary snapshot dump of the current device state
++ * and store it in the device snapshot memory.
++ */
+ int kgsl_device_snapshot(struct kgsl_device *device, int hang)
+ {
+ 	struct kgsl_snapshot_header *header = device->snapshot;
+ 	int remain = device->snapshot_maxsize - sizeof(*header);
+ 	void *snapshot;
+-	struct platform_device *pdev =
+-		container_of(device->parentdev, struct platform_device, dev);
+-	struct kgsl_device_platform_data *pdata = pdev->dev.platform_data;
++	struct timespec boot;
+ 
++	/*
++	 * The first hang is always the one we are interested in. To
++	 * avoid a subsequent hang blowing away the first, the snapshot
++	 * is frozen until it is dumped via sysfs.
++	 *
++	 * Note that triggered snapshots are always taken regardless
++	 * of the state and never frozen.
++	 */
+ 
+ 	if (hang && device->snapshot_frozen == 1)
+ 		return 0;
+@@ -545,34 +621,40 @@
+ 
+ 	header->gpuid = kgsl_gpuid(device, &header->chipid);
+ 
+-	
++	/* Get a pointer to the first section (right after the header) */
+ 	snapshot = ((void *) device->snapshot) + sizeof(*header);
+ 
+-	
++	/* Build the Linux specific header */
+ 	snapshot = kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_OS,
+ 		snapshot, &remain, snapshot_os, (void *) hang);
+ 
+-	
++	/* Get the device specific sections */
+ 	if (device->ftbl->snapshot)
+ 		snapshot = device->ftbl->snapshot(device, snapshot, &remain,
+ 			hang);
+ 
+-	device->snapshot_timestamp = get_seconds();
++	/*
++	 * The timestamp is the seconds since boot so it is easier to match to
++	 * the kernel log
++	 */
++
++	getboottime(&boot);
++	device->snapshot_timestamp = get_seconds() - boot.tv_sec;
+ 	device->snapshot_size = (int) (snapshot - device->snapshot);
+ 
+-	
++	/* Freeze the snapshot on a hang until it gets read */
+ 	device->snapshot_frozen = (hang) ? 1 : 0;
+ 
+-	
+-	KGSL_DRV_ERR(device,"snapshot created at va %p pa %x size %d\n",
+-			device->snapshot, pdata->snapshot_address,
+-			device->snapshot_size);
++	/* log buffer info to aid in ramdump fault tolerance */
++	KGSL_DRV_ERR(device, "snapshot created at pa %lx size %d\n",
++			__pa(device->snapshot),	device->snapshot_size);
+ 	if (hang)
+ 		sysfs_notify(&device->snapshot_kobj, NULL, "timestamp");
+ 	return 0;
+ }
+ EXPORT_SYMBOL(kgsl_device_snapshot);
+ 
++/* An attribute for showing snapshot details */
+ struct kgsl_snapshot_attribute {
+ 	struct attribute attr;
+ 	ssize_t (*show)(struct kgsl_device *device, char *buf);
+@@ -730,21 +797,19 @@
+ 	.release = snapshot_sysfs_release,
+ };
+ 
++/* kgsl_device_snapshot_init - Add resources for the device GPU snapshot
++ * @device - The device to initalize
++ *
++ * Allocate memory for a GPU snapshot for the specified device,
++ * and create the sysfs files to manage it
++ */
+ 
+ int kgsl_device_snapshot_init(struct kgsl_device *device)
+ {
+ 	int ret;
+-	struct platform_device *pdev =
+-		container_of(device->parentdev, struct platform_device, dev);
+-	struct kgsl_device_platform_data *pdata = pdev->dev.platform_data;
+ 
+-	if (device->snapshot == NULL) {
+-		if(pdata->snapshot_address) {
+-			device->snapshot = ioremap(pdata->snapshot_address, KGSL_SNAPSHOT_MEMSIZE);
+-			KGSL_DRV_INFO(device, "snapshot created at va %p pa %x\n", device->snapshot, pdata->snapshot_address);
+-		} else
+-			device->snapshot = kzalloc(KGSL_SNAPSHOT_MEMSIZE, GFP_KERNEL);
+-	}
++	if (device->snapshot == NULL)
++		device->snapshot = kzalloc(KGSL_SNAPSHOT_MEMSIZE, GFP_KERNEL);
+ 
+ 	if (device->snapshot == NULL)
+ 		return -ENOMEM;

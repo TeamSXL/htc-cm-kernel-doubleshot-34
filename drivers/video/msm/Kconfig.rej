@@ -1,0 +1,51 @@
+--- drivers/video/msm/Kconfig
++++ drivers/video/msm/Kconfig
+@@ -126,21 +121,6 @@
+ 	bool "MDP4 overlay support"
+ 	default n
+ 
+-config MSM_ACL_ENABLE
+-	bool "ACL Service"
+-	depends on FB_MSM
+-	default n
+-
+-config MSM_CABC_VIDEO_ENHANCE
+-	bool "Use different CABC setting for Video"
+-	depends on FB_MSM
+-	default n
+-
+-config MSM_AUTOBL_ENABLE
+-	bool "ACL Service"
+-	depends on FB_MSM
+-	default n
+-
+ config FB_MSM_DTV
+ 	depends on FB_MSM_OVERLAY
+ 	bool
+@@ -980,26 +950,6 @@
+ 	---help---
+ 	  Support for EBI2 panel auto detect
+ 
+-config MSM_ALT_DSI_ESCAPE_CLOCK
+-	bool "Change DSI escape clock to byte clock"
+-	default n
+-	---help---
+-	  Changing DSI escape clock source from PXO to byte clock to add
+-	  more flexibility.
+-
+-config FB_MSM_ESD_WORKAROUND
+-	bool "Panel ESD workaround"
+-	default n
+-	---help---
+-	  Read panel power mode to determine if we need to recover display
+-	  from ESD issue.
+-
+-config FB_MSM_CABC_LEVEL_CONTROL
+-	bool "CABC LEVEL CONTROL"
+-	default n
+-	---help---
+-	  Use attribute to switch CABC level.
+-
+ if FB_MSM_MDSS
+ 	source "drivers/video/msm/mdss/Kconfig"
+ endif

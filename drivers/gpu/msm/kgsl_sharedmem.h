@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,33 +27,20 @@ struct kgsl_process_private;
 #define KGSL_CACHE_OP_FLUSH     0x02
 #define KGSL_CACHE_OP_CLEAN     0x03
 
-#define KGSL_MEMFLAGS_CACHED    0x00000001
-#define KGSL_MEMFLAGS_GLOBAL    0x00000002
-
 extern struct kgsl_memdesc_ops kgsl_page_alloc_ops;
-
-int kgsl_sharedmem_ion_alloc(struct kgsl_memdesc *memdesc,
-				struct kgsl_pagetable *pagetable, size_t size);
-
-int kgsl_sharedmem_ion_alloc_user(struct kgsl_memdesc *memdesc,
-				struct kgsl_process_private *private,
-				struct kgsl_pagetable *pagetable,
-				size_t size, int flags);
-
 
 int kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 			   struct kgsl_pagetable *pagetable, size_t size);
 
 int kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
-				struct kgsl_process_private *private,
 				struct kgsl_pagetable *pagetable,
-				size_t size, int flags);
+				size_t size);
 
 int kgsl_sharedmem_alloc_coherent(struct kgsl_memdesc *memdesc, size_t size);
 
 int kgsl_sharedmem_ebimem_user(struct kgsl_memdesc *memdesc,
 			     struct kgsl_pagetable *pagetable,
-			     size_t size, int flags);
+			     size_t size);
 
 int kgsl_sharedmem_ebimem(struct kgsl_memdesc *memdesc,
 			struct kgsl_pagetable *pagetable,
@@ -81,8 +68,42 @@ void kgsl_process_uninit_sysfs(struct kgsl_process_private *private);
 int kgsl_sharedmem_init_sysfs(void);
 void kgsl_sharedmem_uninit_sysfs(void);
 
+/*
+ * kgsl_memdesc_get_align - Get alignment flags from a memdesc
+ * @memdesc - the memdesc
+ *
+ * Returns the alignment requested, as power of 2 exponent.
+ */
+static inline int
+kgsl_memdesc_get_align(const struct kgsl_memdesc *memdesc)
+{
+	return (memdesc->flags & KGSL_MEMALIGN_MASK) >> KGSL_MEMALIGN_SHIFT;
+}
+
+/*
+ * kgsl_memdesc_set_align - Set alignment flags of a memdesc
+ * @memdesc - the memdesc
+ * @align - alignment requested, as a power of 2 exponent.
+ */
+static inline int
+kgsl_memdesc_set_align(struct kgsl_memdesc *memdesc, unsigned int align)
+{
+	if (align > 32) {
+		KGSL_CORE_ERR("Alignment too big, restricting to 2^32\n");
+		align = 32;
+	}
+
+	memdesc->flags &= ~KGSL_MEMALIGN_MASK;
+	memdesc->flags |= (align << KGSL_MEMALIGN_SHIFT) & KGSL_MEMALIGN_MASK;
+	return 0;
+}
+
 static inline unsigned int kgsl_get_sg_pa(struct scatterlist *sg)
 {
+	/*
+	 * Try sg_dma_address first to support ion carveout
+	 * regions which do not work with sg_phys().
+	 */
 	unsigned int pa = sg_dma_address(sg);
 	if (pa == 0)
 		pa = sg_phys(sg);
@@ -93,6 +114,12 @@ int
 kgsl_sharedmem_map_vma(struct vm_area_struct *vma,
 			const struct kgsl_memdesc *memdesc);
 
+/*
+ * For relatively small sglists, it is preferable to use kzalloc
+ * rather than going down the vmalloc rat hole.  If the size of
+ * the sglist is < PAGE_SIZE use kzalloc otherwise fallback to
+ * vmalloc
+ */
 
 static inline void *kgsl_sg_alloc(unsigned int sglen)
 {
@@ -115,7 +142,7 @@ memdesc_sg_phys(struct kgsl_memdesc *memdesc,
 		unsigned int physaddr, unsigned int size)
 {
 	memdesc->sg = kgsl_sg_alloc(1);
-	if (memdesc->sg == NULL)
+	if (!memdesc->sg)
 		return -ENOMEM;
 
 	kmemleak_not_leak(memdesc->sg);
@@ -169,6 +196,8 @@ kgsl_allocate_contiguous(struct kgsl_memdesc *memdesc, size_t size)
 	int ret  = kgsl_sharedmem_alloc_coherent(memdesc, size);
 	if (!ret && (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE))
 		memdesc->gpuaddr = memdesc->physaddr;
+
+	memdesc->flags |= (KGSL_MEMTYPE_KERNEL << KGSL_MEMTYPE_SHIFT);
 	return ret;
 }
 
@@ -183,4 +212,4 @@ static inline int kgsl_sg_size(struct scatterlist *sg, int sglen)
 
 	return size;
 }
-#endif 
+#endif /* __KGSL_SHAREDMEM_H */

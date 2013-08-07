@@ -1,0 +1,27 @@
+--- drivers/video/msm/mdp4_dtv.c
++++ drivers/video/msm/mdp4_dtv.c
+@@ -156,9 +200,10 @@
+ 	return ret;
+ }
+ 
+-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
+-extern atomic_t read_an_complete;
+-#endif
++static void dtv_off_work_func(struct work_struct *work)
++{
++	dtv_off_sub();
++}
+ 
+ static int dtv_on(struct platform_device *pdev)
+ {
+@@ -207,10 +255,6 @@
+ 	pr_info("%s: tv_src_clk=%dkHz, pm_qos_rate=%ldkHz, [%d]\n", __func__,
+ 		mfd->fbi->var.pixclock/1000, pm_qos_rate, ret);
+ 	mfd->panel_info.clk_rate = mfd->fbi->var.pixclock;
+-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
+-	while(atomic_read(&read_an_complete))
+-		msleep(1);
+-#endif
+ 	clk_prepare_enable(hdmi_clk);
+ 	clk_reset(hdmi_clk, CLK_RESET_ASSERT);
+ 	udelay(20);

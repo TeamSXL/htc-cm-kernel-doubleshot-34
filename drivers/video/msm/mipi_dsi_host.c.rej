@@ -1,0 +1,181 @@
+--- drivers/video/msm/mipi_dsi_host.c
++++ drivers/video/msm/mipi_dsi_host.c
+@@ -168,72 +175,27 @@
+ 	spin_unlock(&dsi_irq_lock);
+ }
+ 
+-static int dsi_clk_cnt;
+-static int dsi_clk_on_aux;
+-
+-void mipi_dsi_clk_turn_on(struct msm_panel_info const *pinfo, int target_type)
+-{
+-	mutex_lock(&clk_mutex);
+-
+-	if (!dsi_clk_on_aux && !dsi_clk_cnt) {
+-		mipi_dsi_prepare_clocks();
+-		mipi_dsi_ahb_ctrl(1);
+-
+-		mipi_dsi_phy_ctrl(1);
+-		mipi_dsi_phy_init(0, pinfo, target_type);
+-
+-		mipi_dsi_clk_enable();
+-
+-		dsi_clk_on_aux = 1;
+-		dsi_clk_cnt = 1;
+-	}
+-
+-	mutex_unlock(&clk_mutex);
+-}
+-
+-void mipi_dsi_clk_turn_off()
+-{
+-	mutex_lock(&clk_mutex);
+-
+-	pr_debug("%s: turn off dsi clk and dsi engine, cnt = %d\n",
+-	    __func__, dsi_clk_cnt);
+-
+-	mipi_dsi_clk_disable();
+-
+-	
+-	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, 0);
+-
+-	mipi_dsi_phy_ctrl(0);
+-	mipi_dsi_ahb_ctrl(0);
+-	mipi_dsi_unprepare_clocks();
+-
+-	dsi_clk_on_aux = 0;
+-	dsi_clk_cnt = 0;
+-
+-	mutex_unlock(&clk_mutex);
+-}
+-
+ void mipi_dsi_clk_cfg(int on)
+ {
++	static int dsi_clk_cnt;
++
+ 	mutex_lock(&clk_mutex);
+ 	if (on) {
+-		if (dsi_clk_on_aux) {
+-			dsi_clk_on_aux = 0;
+-		} else if (dsi_clk_cnt == 0) {
++		if (dsi_clk_cnt == 0) {
+ 			mipi_dsi_prepare_clocks();
+ 			mipi_dsi_ahb_ctrl(1);
+ 			mipi_dsi_clk_enable();
+ 		}
+ 		dsi_clk_cnt++;
+ 	} else {
+-		if (dsi_clk_cnt)
++		if (dsi_clk_cnt) {
+ 			dsi_clk_cnt--;
+-		if (dsi_clk_cnt == 0) {
+-			mipi_dsi_clk_disable();
+-			mipi_dsi_ahb_ctrl(0);
+-			mipi_dsi_unprepare_clocks();
++			if (dsi_clk_cnt == 0) {
++				mipi_dsi_clk_disable();
++				mipi_dsi_ahb_ctrl(0);
++				mipi_dsi_unprepare_clocks();
++			}
+ 		}
+-		dsi_clk_on_aux = 0;
+ 	}
+ 	pr_debug("%s: on=%d clk_cnt=%d pid=%d\n", __func__,
+ 				on, dsi_clk_cnt, current->pid);
+@@ -1163,56 +1193,7 @@
+ 
+ 	mipi_dsi_cmdlist_put(&cmdreq);
+ }
+-#ifdef CONFIG_FB_MSM_ESD_WORKAROUND
+-uint32 mipi_dsi_cmd_bta_sw_trigger_status(void)
+-{
+-        uint32 data, status;
+-        int cnt = 0;
+-
+-        MIPI_OUTP(MIPI_DSI_BASE + 0x094, 0x01); 
+-        wmb();
+-
+-        while (cnt < 100000) {
+-                data = MIPI_INP(MIPI_DSI_BASE + 0x0004);
+-                if ((data & 0x0010) == 0)
+-                        break;
+-                cnt++;
+-        }
+-
+-        status = MIPI_INP(MIPI_DSI_BASE + 0x0064);
+-
+-        if (status) {
+-                pr_err("%s: status=%x\n", __func__, status);
+-        }
+-
+-        pr_info("%s: BTA done, cnt=%d\n", __func__, cnt);
+-
+-	return status;
+-}
+-
+-static char read_power_mode[2] = {0x0A, 0x00};
+-static struct dsi_cmd_desc power_mode_cmd = {
+-        DTYPE_DCS_READ, 1, 0, 0, 0, sizeof(read_power_mode), read_power_mode};
+-uint32 pwr_mode;
+-
+-static void mipi_read_power_mode_cb(u32 data)
+-{
+-	pwr_mode = data & 0xff;
+-	pr_info("%s: power_mode=%x\n", __func__, pwr_mode);
+-}
+-
+-uint32 mipi_dsi_read_power_mode(void)
+-{
+-	cmdreq.cmds = &power_mode_cmd;
+-	cmdreq.cmds_cnt = 1;
+-	cmdreq.flags = CMD_REQ_RX | CMD_REQ_COMMIT;
+-	cmdreq.rlen = 1;
+-	cmdreq.cb = mipi_read_power_mode_cb;
+-	mipi_dsi_cmdlist_put(&cmdreq);
+ 
+-	return pwr_mode;
+-}
+-#endif
+ int mipi_dsi_cmd_reg_tx(uint32 data)
+ {
+ #ifdef DSI_HOST_DEBUG
+@@ -1272,23 +1262,36 @@
+ 		mipi_dsi_cmd_dma_add(tp, cm);
+ 		mipi_dsi_cmd_dma_tx(tp);
+ 		if (cm->wait)
+-			hr_msleep(cm->wait);
++			msleep(cm->wait);
+ 		cm++;
+ 	}
+ 
+ 	if (video_mode)
+-		MIPI_OUTP(MIPI_DSI_BASE + 0x0000, dsi_ctrl); 
++		MIPI_OUTP(MIPI_DSI_BASE + 0x0000, dsi_ctrl); /* restore */
+ 
+ 	return cnt;
+ }
+ 
+-static char max_pktsize[2] = {0x00, 0x00}; 
++/* MIPI_DSI_MRPS, Maximum Return Packet Size */
++static char max_pktsize[2] = {0x00, 0x00}; /* LSB tx first, 10 bytes */
+ 
+ static struct dsi_cmd_desc pkt_size_cmd[] = {
+ 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
+ 		sizeof(max_pktsize), max_pktsize}
+ };
+ 
++/*
++ * DSI panel reply with  MAX_RETURN_PACKET_SIZE bytes of data
++ * plus DCS header, ECC and CRC for DCS long read response
++ * mipi_dsi_controller only have 4x32 bits register ( 16 bytes) to
++ * hold data per transaction.
++ * MIPI_DSI_LEN equal to 8
++ * len should be either 4 or 8
++ * any return data more than MIPI_DSI_LEN need to be break down
++ * to multiple transactions.
++ *
++ * ov_mutex need to be acquired before call this function.
++ */
+ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
+ 			struct dsi_buf *tp, struct dsi_buf *rp,
+ 			struct dsi_cmd_desc *cmds, int rlen)

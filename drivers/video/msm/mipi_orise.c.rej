@@ -1,0 +1,11 @@
+--- drivers/video/msm/mipi_orise.c
++++ drivers/video/msm/mipi_orise.c
+@@ -70,7 +70,7 @@
+ 		mipi_dsi_cmds_tx(&orise_tx_buf, orise_cmd_on_cmds,
+ 			ARRAY_SIZE(orise_cmd_on_cmds));
+ 
+-		mipi_dsi_cmd_bta_sw_trigger(); 
++		mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
+ 	}
+ 
+ 	return 0;

@@ -1,0 +1,38 @@
+--- drivers/video/msm/vidc/common/dec/vdec.c
++++ drivers/video/msm/vidc/common/dec/vdec.c
+@@ -37,12 +37,12 @@
+ 
+ 
+ 
+-#define DBG(x...) pr_debug("[VID] " x)
+-#define INFO(x...) pr_info("[VID] " x)
+-#define ERR(x...) pr_err("[VID] " x)
++#define DBG(x...) pr_debug(x)
++#define INFO(x...) pr_info(x)
++#define ERR(x...) pr_err(x)
+ 
+ #define VID_DEC_NAME "msm_vidc_dec"
+-void keep_dig_voltage_low_in_idle(bool on);
++
+ static char *node_name[2] = {"", "_sec"};
+ static struct vid_dec_dev *vid_dec_device_p;
+ static dev_t vid_dec_dev_num;
+@@ -2049,8 +2047,7 @@
+ 	struct vid_dec_msg *vdec_msg;
+ 	u32 vcd_status;
+ 
+-	INFO("msm_vidc_dec: Inside %s()", __func__);
+-	keep_dig_voltage_low_in_idle(false);
++	DBG("msm_vidc_dec: Inside %s()", __func__);
+ 	if (!client_ctx || (!client_ctx->vcd_handle)) {
+ 		ERR("\n Invalid client_ctx");
+ 		return false;
+@@ -2093,8 +2090,6 @@
+ 	struct video_client_ctx *client_ctx = NULL;
+ 	u8 client_count;
+ 
+-	INFO("msm_vidc_dec: Inside %s()", __func__);
+-	keep_dig_voltage_low_in_idle(true);
+ 	if (!vid_clnt_ctx) {
+ 		ERR("Invalid input\n");
+ 		return -EINVAL;

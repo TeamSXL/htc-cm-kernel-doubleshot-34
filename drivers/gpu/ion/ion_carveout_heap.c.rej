@@ -1,0 +1,18 @@
+--- drivers/gpu/ion/ion_carveout_heap.c
++++ drivers/gpu/ion/ion_carveout_heap.c
+@@ -381,13 +377,13 @@
+ 		if (ret)
+ 			goto out2;
+ 	}
+-	vfree(sglist);
++	kfree(sglist);
+ 	return ret;
+ 
+ out2:
+ 	iommu_unmap_range(domain, data->iova_addr, buffer->size);
+ out1:
+-	vfree(sglist);
++	kfree(sglist);
+ 	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
+ 				data->mapped_size);
+ 

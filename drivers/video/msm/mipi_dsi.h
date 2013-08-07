@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,9 +23,9 @@
 
 #define BIT(x)  (1<<(x))
 
-#define MMSS_CC_BASE_PHY 0x04000000	
-#define MMSS_SFPB_BASE_PHY 0x05700000	
-#define MMSS_SERDES_BASE_PHY 0x04f01000 
+#define MMSS_CC_BASE_PHY 0x04000000	/* mmss clcok control */
+#define MMSS_SFPB_BASE_PHY 0x05700000	/* mmss SFPB CFG */
+#define MMSS_SERDES_BASE_PHY 0x04f01000 /* mmss (De)Serializer CFG */
 
 #define MIPI_DSI_BASE mipi_dsi_base
 
@@ -54,7 +54,7 @@
 #define MIPI_DSI_PANEL_720P_PT	8
 #define DSI_PANEL_MAX	8
 
-enum {		
+enum {		/* mipi dsi panel */
 	DSI_VIDEO_MODE,
 	DSI_CMD_MODE,
 };
@@ -253,19 +253,21 @@ struct dsi_kickoff_action {
 	void *data;
 };
 
+
 #define CMD_REQ_MAX	4
 
 typedef void (*fxn)(u32 data);
 
 #define CMD_REQ_RX	0x0001
-#define CMD_REQ_COMMIT 0x0002
+#define CMD_REQ_COMMIT	0x0002
+#define CMD_CLK_CTRL	0x0004
 #define CMD_REQ_NO_MAX_PKT_SIZE 0x0008
 
 struct dcs_cmd_req {
 	struct dsi_cmd_desc *cmds;
 	int cmds_cnt;
 	u32 flags;
-	int rlen;	
+	int rlen;	/* rx length */
 	fxn cb;
 };
 
@@ -304,6 +306,7 @@ void mipi_dsi_ack_err_status(void);
 void mipi_dsi_set_tear_on(struct msm_fb_data_type *mfd);
 void mipi_dsi_set_tear_off(struct msm_fb_data_type *mfd);
 void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level);
+void mipi_dsi_cmd_backlight_tx(struct dsi_buf *dp);
 void mipi_dsi_clk_enable(void);
 void mipi_dsi_clk_disable(void);
 void mipi_dsi_pre_kickoff_action(void);

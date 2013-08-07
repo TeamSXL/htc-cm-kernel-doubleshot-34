@@ -1,0 +1,14 @@
+--- drivers/video/msm/vidc/1080p/ddl/vcd_ddl_properties.c
++++ drivers/video/msm/vidc/1080p/ddl/vcd_ddl_properties.c
+@@ -1049,11 +1051,6 @@
+ 	case VCD_REQ_PERF_LEVEL:
+ 		vcd_status = VCD_S_SUCCESS;
+ 		break;
+-    case VCD_I_SET_TURBO_CLK:
+-    {
+-        vcd_status = VCD_S_SUCCESS;
+-        break;
+-    }
+ 	case VCD_I_ENABLE_DELIMITER_FLAG:
+ 	{
+ 		struct vcd_property_avc_delimiter_enable *delimiter_enable =

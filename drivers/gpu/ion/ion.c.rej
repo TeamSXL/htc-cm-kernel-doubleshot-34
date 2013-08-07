@@ -1,0 +1,106 @@
+--- drivers/gpu/ion/ion.c
++++ drivers/gpu/ion/ion.c
+@@ -972,7 +982,6 @@
+ 						 &debug_client_fops);
+ 	mutex_unlock(&dev->lock);
+ 
+-	pr_info("%s: create ion_client (%s) at %p\n", __func__, client->name, client);
+ 	return client;
+ }
+ 
+@@ -981,13 +990,11 @@
+ 	struct ion_device *dev = client->dev;
+ 	struct rb_node *n;
+ 
+-	pr_info("%s: destroy ion_client %p (%s)\n", __func__, client, client->name);
++	pr_debug("%s: %d\n", __func__, __LINE__);
+ 	while ((n = rb_first(&client->handles))) {
+ 		struct ion_handle *handle = rb_entry(n, struct ion_handle,
+ 						     node);
+-		mutex_lock(&client->lock);
+ 		ion_handle_destroy(&handle->ref);
+-		mutex_unlock(&client->lock);
+ 	}
+ 	mutex_lock(&dev->lock);
+ 	if (client->task)
+@@ -1557,32 +1538,19 @@
+ 					   "Part of memory map will not be logged\n");
+ 				break;
+ 			}
+-			if (heap->id == ION_IOMMU_HEAP_ID) {
+-				data->addr = (unsigned long)buffer;
+-			} else {
+-				data->addr = buffer->priv_phys;
+-				data->addr_end = buffer->priv_phys + buffer->size-1;
+-			}
++			data->addr = buffer->priv_phys;
++			data->addr_end = buffer->priv_phys + buffer->size-1;
+ 			data->size = buffer->size;
+ 			data->client_name = ion_debug_locate_owner(dev, buffer);
+-
+-			{
+-				
+-				struct rb_node *p = NULL;
+-				struct ion_client *entry = NULL;
+-
+-				for (p = rb_first(&dev->clients); p && !data->creator_name;
+-						p = rb_next(p)) {
+-					entry = rb_entry(p, struct ion_client, node);
+-					if (entry == buffer->creator)
+-						data->creator_name = entry->name;
+-				}
+-			}
+ 			ion_debug_mem_map_add(mem_map, data);
+ 		}
+ 	}
+ }
+ 
++/**
++ * Free the memory allocated by ion_debug_mem_map_create
++ * @param mem_map The mem map to free.
++ */
+ static void ion_debug_mem_map_destroy(struct rb_root *mem_map)
+ {
+ 	if (mem_map) {
+@@ -1752,8 +1733,8 @@
+ 	struct rb_node *n;
+ 	struct rb_node *n2;
+ 
+-	
+-	seq_printf(s, "%16.s %12.s %16.s %16.s %16.s\n", "buffer", "physical", "heap", "size",
++	/* mark all buffers as 1 */
++	seq_printf(s, "%16.s %16.s %16.s %16.s\n", "buffer", "heap", "size",
+ 		"ref cnt");
+ 	mutex_lock(&dev->lock);
+ 	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
+@@ -1780,26 +1761,15 @@
+ 
+ 	}
+ 
+-	
++	/* And anyone still marked as a 1 means a leaked handle somewhere */
+ 	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
+ 		struct ion_buffer *buf = rb_entry(n, struct ion_buffer,
+ 						     node);
+-		enum ion_heap_type type = buf->heap->type;
+-
+-		if (buf->marked == 1) {
+-			seq_printf(s, "%16.x", (int)buf);
+ 
+-			if (type == ION_HEAP_TYPE_SYSTEM_CONTIG ||
+-				type == ION_HEAP_TYPE_CARVEOUT ||
+-				type == ION_HEAP_TYPE_CP)
+-				seq_printf(s, " %12lx", buf->priv_phys);
+-			else
+-				seq_printf(s, " %12s", "N/A");
+-
+-			seq_printf(s, " %16.s %16.x %16.d\n",
+-				buf->heap->name, buf->size,
++		if (buf->marked == 1)
++			seq_printf(s, "%16.x %16.s %16.x %16.d\n",
++				(int)buf, buf->heap->name, buf->size,
+ 				atomic_read(&buf->ref.refcount));
+-		}
+ 	}
+ 	mutex_unlock(&dev->lock);
+ 	return 0;
