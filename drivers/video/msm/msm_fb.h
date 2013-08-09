@@ -55,6 +55,7 @@ struct disp_info_type_suspend {
 	boolean op_enable;
 	boolean sw_refreshing_enable;
 	boolean panel_power_on;
+	boolean op_suspend;
 };
 
 struct msmfb_writeback_data_list {
@@ -156,6 +157,11 @@ struct msm_fb_data_type {
 	__u32 var_xres;
 	__u32 var_yres;
 	__u32 var_pixclock;
+#if 1 
+	uint32_t width;
+	uint32_t height;
+	int perfhint;
+#endif 
 	__u32 var_frame_rate;
 
 #ifdef MSM_FB_ENABLE_DBGFS
@@ -182,9 +188,11 @@ struct msm_fb_data_type {
 	struct list_head writeback_free_queue;
 	struct list_head writeback_register_queue;
 	wait_queue_head_t wait_q;
+	struct switch_dev writeback_sdev;
 	struct ion_client *iclient;
 	unsigned long display_iova;
 	unsigned long rotator_iova;
+	int cont_splash_done;
 	struct mdp_buf_type *ov0_wb_buf;
 	struct mdp_buf_type *ov1_wb_buf;
 	u32 ov_start;
@@ -192,6 +200,28 @@ struct msm_fb_data_type {
 	u32 mdp_rev;
 	u32 writeback_state;
 	bool writeback_active_cnt;
+	void *cpu_pm_hdl;
+	u32 acq_fen_cnt;
+	struct sync_fence *acq_fen[MDP_MAX_FENCE_FD];
+	int cur_rel_fen_fd;
+	struct sync_pt *cur_rel_sync_pt;
+	struct sync_fence *cur_rel_fence;
+	struct sync_fence *last_rel_fence;
+	struct sw_sync_timeline *timeline;
+	int timeline_value;
+	u32 last_acq_fen_cnt;
+	struct sync_fence *last_acq_fen[MDP_MAX_FENCE_FD];
+	struct mutex sync_mutex;
+	struct completion commit_comp;
+	u32 is_committing;
+	struct work_struct commit_work;
+	void *msm_fb_backup;
+	boolean panel_driver_on;
+	int vsync_sysfs_created;
+};
+struct msm_fb_backup_type {
+	struct fb_info info;
+	struct mdp_display_commit disp_commit;
 	int cont_splash_done;
 };
 

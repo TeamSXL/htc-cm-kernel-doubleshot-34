@@ -35,22 +35,23 @@
 #include "vcd_res_tracker_api.h"
 
 #define VID_ENC_NAME	"msm_vidc_enc"
-
+static char *node_name[2] = {"", "_sec"};
 extern u32 vidc_msg_debug;
-#define DBG(x...)				\
-	if (vidc_msg_debug) {			\
-		printk(KERN_DEBUG "[VID] " x);	\
-	}
+#if DEBUG
+#define DBG(x...) printk(KERN_DEBUG x)
+#else
+#define DBG(x...)
+#endif
 
-#define INFO(x...) printk(KERN_INFO "[VID] " x)
-#define ERR(x...) printk(KERN_ERR "[VID] " x)
+#define INFO(x...) printk(KERN_INFO x)
+#define ERR(x...) printk(KERN_ERR x)
 
 static struct vid_enc_dev *vid_enc_device_p;
 static dev_t vid_enc_dev_num;
 static struct class *vid_enc_class;
 static long vid_enc_ioctl(struct file *file,
 	unsigned cmd, unsigned long arg);
-static int stop_cmd;
+
 
 static s32 vid_enc_get_empty_client_index(void)
 {
@@ -513,37 +514,41 @@ static u32 vid_enc_close_client(struct video_client_ctx *client_ctx)
 		sizeof(struct video_client_ctx));
 
 	vid_enc_device_p->num_clients--;
-	stop_cmd = 0;
+	client_ctx->stop_called = 0;
 	mutex_unlock(&vid_enc_device_p->lock);
 	return true;
 }
 
 
-static int vid_enc_open(struct inode *inode, struct file *file)
+static int vid_enc_open_client(struct video_client_ctx **vid_clnt_ctx,
+							   int flags)
 {
 	s32 client_index;
 	struct video_client_ctx *client_ctx;
 	int rc = 0;
 	u8 client_count = 0;
 
-	INFO(" msm_vidc_enc: Inside %s()", __func__);
-
-	mutex_lock(&vid_enc_device_p->lock);
-
-	stop_cmd = 0;
+	INFO("\n msm_vidc_enc: Inside %s()", __func__);
+	if (!vid_clnt_ctx) {
+		ERR("Invalid input\n");
+		rc = -EINVAL;
+		goto client_failure;
+	}
+	*vid_clnt_ctx = NULL;
 	client_count = vcd_get_num_of_clients();
 	if (client_count == VIDC_MAX_NUM_CLIENTS) {
-		ERR("ERROR : vid_enc_open() max number of clients"
-		    "limit reached\n");
-		mutex_unlock(&vid_enc_device_p->lock);
-		return -ENODEV;
+		ERR("ERROR : vid_enc_open() max number of clients\n");
+		rc = -ENODEV;
+		goto client_failure;
 	}
 
 	DBG(" Virtual Address of ioremap is %p\n", vid_enc_device_p->virt_base);
 	if (!vid_enc_device_p->num_clients) {
-		if (!vidc_load_firmware())
-			return -ENODEV;
-	}
+		if (!vidc_load_firmware()) {
+			rc = -ENODEV;
+			goto client_failure;
+		}
+ 	}
 
 	client_index = vid_enc_get_empty_client_index();
 
@@ -614,21 +619,72 @@ static int vid_enc_open(struct inode *inode, struct file *file)
 static int vid_enc_release(struct inode *inode, struct file *file)
 {
 	struct video_client_ctx *client_ctx = file->private_data;
-	INFO(" msm_vidc_enc: Inside %s()", __func__);
+	INFO("\n msm_vidc_enc: Inside %s()", __func__);
 	vid_enc_close_client(client_ctx);
 	vidc_release_firmware();
 #ifndef USE_RES_TRACKER
 	vidc_disable_clk();
 #endif
-	INFO(" msm_vidc_enc: Return from %s()", __func__);
+	INFO("\n msm_vidc_enc: Return from %s()", __func__);
 	return 0;
 }
 
-static const struct file_operations vid_enc_fops = {
-	.owner = THIS_MODULE,
-	.open = vid_enc_open,
-	.release = vid_enc_release,
-	.unlocked_ioctl = vid_enc_ioctl,
+static int vid_enc_open_secure(struct inode *inode, struct file *file)
+{
+	int rc = 0, vcd_status = 0;
+	struct video_client_ctx *client_ctx = NULL;
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_sps_pps_for_idr_enable idr_enable;
+
+	INFO("msm_vidc_enc: Inside %s()", __func__);
+	mutex_lock(&vid_enc_device_p->lock);
+	rc = vid_enc_open_client(&client_ctx, VCD_CP_SESSION);
+	if (rc || !client_ctx) {
+		pr_err("%s() open failed rc=%d\n", __func__, rc);
+		if (!client_ctx)
+			rc = -ENOMEM;
+		goto error;
+	}
+	file->private_data = client_ctx;
+	vcd_property_hdr.prop_id = VCD_I_ENABLE_SPS_PPS_FOR_IDR;
+	vcd_property_hdr.sz =
+		sizeof(struct vcd_property_sps_pps_for_idr_enable);
+	idr_enable.sps_pps_for_idr_enable_flag = 1;
+	vcd_status = vcd_set_property(client_ctx->vcd_handle,
+				&vcd_property_hdr, &idr_enable);
+	if (vcd_status) {
+		ERR("Setting SPS with IDR failed\n");
+		rc = -EACCES;
+		goto close_client;
+	}
+
+if (res_trk_open_secure_session()) {
+		rc = -EACCES;
+		goto close_client;
+	}
+	mutex_unlock(&vid_enc_device_p->lock);
+	return rc;
+
+close_client:
+	vid_enc_close_client(client_ctx);
+	ERR("Secure session operation failure\n");
+error:
+	mutex_unlock(&vid_enc_device_p->lock);
+	return rc;
+}
+static const struct file_operations vid_enc_fops[NUM_OF_DRIVER_NODES] = {
+	{
+		.owner = THIS_MODULE,
+		.open = vid_enc_open,
+		.release = vid_enc_release,
+		.unlocked_ioctl = vid_enc_ioctl,
+	},
+	{
+		.owner = THIS_MODULE,
+		.open = vid_enc_open_secure,
+		.release = vid_enc_release,
+		.unlocked_ioctl = vid_enc_ioctl,
+	},
 };
 
 void vid_enc_interrupt_deregister(void)

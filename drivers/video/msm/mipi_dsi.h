@@ -31,7 +31,7 @@
 
 #define MIPI_OUTP(addr, data) writel((data), (addr))
 #define MIPI_INP(addr) readl(addr)
-
+#define DSI_VIDEO_TERM	BIT(16)
 #ifdef CONFIG_MSM_SECURE_IO
 #define MIPI_OUTP_SECURE(addr, data) secure_writel((data), (addr))
 #define MIPI_INP_SECURE(addr) secure_readl(addr)
@@ -282,6 +282,8 @@ struct dcs_cmd_list {
 char *mipi_dsi_buf_reserve_hdr(struct dsi_buf *dp, int hlen);
 char *mipi_dsi_buf_init(struct dsi_buf *dp);
 void mipi_dsi_init(void);
+void mipi_dsi_configure_fb_divider(u32 fps_level);
+void mipi_dsi_wait4video_done(void);
 void mipi_dsi_lane_cfg(void);
 void mipi_dsi_bist_ctrl(void);
 int mipi_dsi_buf_alloc(struct dsi_buf *, int size);

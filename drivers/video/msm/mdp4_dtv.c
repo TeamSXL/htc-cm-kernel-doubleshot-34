@@ -49,7 +49,10 @@ static struct clk *mdp_tv_clk;
 static struct platform_device *dtv_pdev;
 static struct workqueue_struct *dtv_work_queue;
 static struct work_struct dtv_off_work;
-
+static void dtv_off_work_func(struct work_struct *work)
+{
+	dtv_off_sub();
+}
 
 static int mdp4_dtv_runtime_suspend(struct device *dev)
 {

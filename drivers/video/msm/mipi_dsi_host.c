@@ -168,58 +168,14 @@ void mipi_dsi_disable_irq_nosync(u32 term)
 	spin_unlock(&dsi_irq_lock);
 }
 
-static int dsi_clk_cnt;
-static int dsi_clk_on_aux;
 
-void mipi_dsi_clk_turn_on(struct msm_panel_info const *pinfo, int target_type)
-{
-	mutex_lock(&clk_mutex);
 
-	if (!dsi_clk_on_aux && !dsi_clk_cnt) {
-		mipi_dsi_prepare_clocks();
-		mipi_dsi_ahb_ctrl(1);
-
-		mipi_dsi_phy_ctrl(1);
-		mipi_dsi_phy_init(0, pinfo, target_type);
-
-		mipi_dsi_clk_enable();
-
-		dsi_clk_on_aux = 1;
-		dsi_clk_cnt = 0;
-	}
-
-	mutex_unlock(&clk_mutex);
-}
-
-void mipi_dsi_clk_turn_off()
-{
-	mutex_lock(&clk_mutex);
-
-	pr_debug("%s: turn off dsi clk and dsi engine, cnt = %d\n",
-	    __func__, dsi_clk_cnt);
-
-	mipi_dsi_clk_disable();
-
-	
-	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, 0);
-
-	mipi_dsi_phy_ctrl(0);
-	mipi_dsi_ahb_ctrl(0);
-	mipi_dsi_unprepare_clocks();
-
-	dsi_clk_on_aux = 0;
-	dsi_clk_cnt = 0;
-
-	mutex_unlock(&clk_mutex);
-}
 
 void mipi_dsi_clk_cfg(int on)
-{
+{static int dsi_clk_cnt;
 	mutex_lock(&clk_mutex);
 	if (on) {
-		if (dsi_clk_on_aux) {
-			dsi_clk_on_aux = 0;
-		} else if (dsi_clk_cnt == 0) {
+		if (dsi_clk_cnt == 0) {
 			mipi_dsi_prepare_clocks();
 			mipi_dsi_ahb_ctrl(1);
 			mipi_dsi_clk_enable();
@@ -234,7 +190,8 @@ void mipi_dsi_clk_cfg(int on)
 				mipi_dsi_ahb_ctrl(0);
 				mipi_dsi_unprepare_clocks();
 			}
-			dsi_clk_on_aux = 0;
+}
+			
 		}
 	}
 	pr_debug("%s: on=%d clk_cnt=%d pid=%d\n", __func__,

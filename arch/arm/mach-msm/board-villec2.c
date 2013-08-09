@@ -43,7 +43,7 @@
 #include <linux/atmel_qt602240.h>
 #include <linux/input/cy8c_cs.h>
 #include <linux/mpu.h>
-
+#include <linux/msm_ion.h>
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
 #endif

@@ -116,10 +116,19 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	ret = panel_next_off(pdev);
 
-#ifdef CONFIG_MSM_BUS_SCALING
-	mdp_bus_scale_update_request(0);
-#endif
+	spin_lock_bh(&dsi_clk_lock);
 
+	mipi_dsi_clk_disable();
+
+	/* disbale dsi engine */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, 0);
+ 
+	mipi_dsi_phy_ctrl(0);
+ 
+	mipi_dsi_ahb_ctrl(0);
+	spin_unlock_bh(&dsi_clk_lock);
+
+	mipi_dsi_unprepare_clocks();
 	mipi_dsi_clk_turn_off();
 
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
@@ -138,6 +147,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 static int mipi_dsi_on(struct platform_device *pdev)
 {
 	int ret = 0;
+	u32 clk_rate;
 	struct msm_fb_data_type *mfd;
 	struct fb_info *fbi;
 	struct fb_var_screeninfo *var;
@@ -163,12 +173,25 @@ static int mipi_dsi_on(struct platform_device *pdev)
 
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
 		mipi_dsi_pdata->dsi_power_save(1);
+	
+	cont_splash_clk_ctrl(0);
+	mipi_dsi_prepare_clocks();
+
+	mipi_dsi_ahb_ctrl(1);
+
+	clk_rate = mfd->fbi->var.pixclock;
+	clk_rate = min(clk_rate, mfd->panel_info.clk_max);
+
+	mipi_dsi_phy_ctrl(1);
 
 	if (mdp_rev == MDP_REV_42 && mipi_dsi_pdata)
 		target_type = mipi_dsi_pdata->target_type;
 
 	cont_splash_clk_ctrl(0);
-	mipi_dsi_clk_turn_on(&(mfd->panel_info), target_type);
+	mipi_dsi_phy_init(0, &(mfd->panel_info), target_type);
+
+	mipi_dsi_clk_enable();
+
 	MIPI_OUTP(MIPI_DSI_BASE + 0x114, 1);
 	MIPI_OUTP(MIPI_DSI_BASE + 0x114, 0);
 
@@ -302,26 +325,28 @@ static int mipi_dsi_on(struct platform_device *pdev)
 			}
 			mipi_dsi_set_tear_on(mfd);
 		}
-		mipi_dsi_clk_cfg(0);
+		mipi_dsi_clk_cfg(0)
+		mipi_dsi_clk_disable();
+		mipi_dsi_ahb_ctrl(0);
+		mipi_dsi_unprepare_clocks();
 	}
 
 
-#ifdef CONFIG_MSM_BUS_SCALING
-	mdp_bus_scale_update_request(2);
-#endif
 
-	mdp4_overlay_dsi_state_set(ST_DSI_RESUME);
 
 	if (mdp_rev >= MDP_REV_41)
 		mutex_unlock(&mfd->dma->ov_mutex);
 	else
 		up(&mfd->dma->mutex);
 
-	pr_debug("%s-:\n", __func__);
+	pr_debug("%s-:\n", __func__);r_debug("%s-:\n", __func__);
 
 	return ret;
 }
-
+static int mipi_dsi_late_init(struct platform_device *pdev)
+{
+	return panel_next_late_init(pdev);
+}
 
 static int mipi_dsi_resource_initialized;
 

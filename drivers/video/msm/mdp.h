@@ -845,6 +845,7 @@ static inline int mdp_bus_scale_update_request(u64 ab,
 {
 	return 0;
 }
+
 #endif
 void mdp_dma_vsync_ctrl(int enable);
 void mdp_dma_video_vsync_ctrl(int enable);

@@ -37,9 +37,9 @@
 
 
 
-#define DBG(x...) pr_debug("[VID] " x)
-#define INFO(x...) pr_info("[VID] " x)
-#define ERR(x...) pr_err("[VID] " x)
+#define DBG(x...) pr_debug(x)
+#define INFO(x...) pr_info(x)
+#define ERR(x...) pr_err(x)
 
 #define VID_DEC_NAME "msm_vidc_dec"
 
@@ -2049,7 +2049,7 @@ static u32 vid_dec_close_client(struct video_client_ctx *client_ctx)
 	struct vid_dec_msg *vdec_msg;
 	u32 vcd_status;
 
-	INFO("msm_vidc_dec: Inside %s()", __func__);
+	DBG("msm_vidc_dec: Inside %s()", __func__);
 	if (!client_ctx || (!client_ctx->vcd_handle)) {
 		ERR("\n Invalid client_ctx");
 		return false;

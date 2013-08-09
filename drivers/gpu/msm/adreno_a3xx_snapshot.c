@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,12 +113,6 @@ static int a3xx_snapshot_cp_pm4_ram(struct kgsl_device *device, void *snapshot,
 	header->type = SNAPSHOT_DEBUG_CP_PM4_RAM;
 	header->size = size;
 
-	/*
-	 * Read the firmware from the GPU rather than use our cache in order to
-	 * try to catch mis-programming or corruption in the hardware.  We do
-	 * use the cached version of the size, however, instead of trying to
-	 * maintain always changing hardcoded constants
-	 */
 
 	adreno_regwrite(device, REG_CP_ME_RAM_RADDR, 0x0);
 	for (i = 0; i < size; i++)
@@ -143,12 +137,6 @@ static int a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, void *snapshot,
 	header->type = SNAPSHOT_DEBUG_CP_PFP_RAM;
 	header->size = size;
 
-	/*
-	 * Read the firmware from the GPU rather than use our cache in order to
-	 * try to catch mis-programming or corruption in the hardware.  We do
-	 * use the cached version of the size, however, instead of trying to
-	 * maintain always changing hardcoded constants
-	 */
 	kgsl_regwrite(device, A3XX_CP_PFP_UCODE_ADDR, 0x0);
 	for (i = 0; i < size; i++)
 		adreno_regread(device, A3XX_CP_PFP_UCODE_DATA, &data[i]);
@@ -156,68 +144,28 @@ static int a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, void *snapshot,
 	return DEBUG_SECTION_SZ(size);
 }
 
-/* This is the ROQ buffer size on both the A305 and A320 */
-#define A320_CP_ROQ_SIZE 128
-/* This is the ROQ buffer size on the A330 */
-#define A330_CP_ROQ_SIZE 512
+#define CP_ROQ_SIZE 128
 
 static int a3xx_snapshot_cp_roq(struct kgsl_device *device, void *snapshot,
 		int remain, void *priv)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_debug *header = snapshot;
 	unsigned int *data = snapshot + sizeof(*header);
-	int i, size;
+	int i;
 
-	/* The size of the ROQ buffer is core dependent */
-	size = adreno_is_a330(adreno_dev) ?
-		A330_CP_ROQ_SIZE : A320_CP_ROQ_SIZE;
-
-	if (remain < DEBUG_SECTION_SZ(size)) {
+	if (remain < DEBUG_SECTION_SZ(CP_ROQ_SIZE)) {
 		SNAPSHOT_ERR_NOMEM(device, "CP ROQ DEBUG");
 		return 0;
 	}
 
 	header->type = SNAPSHOT_DEBUG_CP_ROQ;
-	header->size = size;
+	header->size = CP_ROQ_SIZE;
 
 	adreno_regwrite(device, A3XX_CP_ROQ_ADDR, 0x0);
-	for (i = 0; i < size; i++)
+	for (i = 0; i < CP_ROQ_SIZE; i++)
 		adreno_regread(device, A3XX_CP_ROQ_DATA, &data[i]);
 
-	return DEBUG_SECTION_SZ(size);
-}
-
-#define A330_CP_MERCIU_QUEUE_SIZE 32
-
-static int a330_snapshot_cp_merciu(struct kgsl_device *device, void *snapshot,
-		int remain, void *priv)
-{
-	struct kgsl_snapshot_debug *header = snapshot;
-	unsigned int *data = snapshot + sizeof(*header);
-	int i, size;
-
-	/* The MERCIU data is two dwords per entry */
-	size = A330_CP_MERCIU_QUEUE_SIZE << 1;
-
-	if (remain < DEBUG_SECTION_SZ(size)) {
-		SNAPSHOT_ERR_NOMEM(device, "CP MERCIU DEBUG");
-		return 0;
-	}
-
-	header->type = SNAPSHOT_DEBUG_CP_MERCIU;
-	header->size = size;
-
-	adreno_regwrite(device, A3XX_CP_MERCIU_ADDR, 0x0);
-
-	for (i = 0; i < A330_CP_MERCIU_QUEUE_SIZE; i++) {
-		adreno_regread(device, A3XX_CP_MERCIU_DATA,
-			&data[(i * 2)]);
-		adreno_regread(device, A3XX_CP_MERCIU_DATA2,
-			&data[(i * 2) + 1]);
-	}
-
-	return DEBUG_SECTION_SZ(size);
+	return DEBUG_SECTION_SZ(CP_ROQ_SIZE);
 }
 
 #define DEBUGFS_BLOCK_SIZE 0x40
@@ -354,20 +302,14 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 			a3xx_snapshot_cp_pm4_ram, NULL);
 	}
 
-	/* CP ROQ */
+	
 	snapshot = kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
 			a3xx_snapshot_cp_roq, NULL);
 
-	if (adreno_is_a330(adreno_dev)) {
-		snapshot = kgsl_snapshot_add_section(device,
-			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
-			a330_snapshot_cp_merciu, NULL);
-	}
-
 	snapshot = a3xx_snapshot_debugbus(device, snapshot, remain);
 
-	/* Enable Clock gating */
+	
 	adreno_regwrite(device, A3XX_RBBM_CLOCK_CTL,
 			A3XX_RBBM_CLOCK_CTL_DEFAULT);
 
