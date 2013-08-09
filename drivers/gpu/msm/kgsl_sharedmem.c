@@ -151,9 +151,7 @@ static struct kobj_type ktype_mem_entry = {
 
 static struct mem_entry_stats mem_stats[] = {
 	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_KERNEL, kernel),
-#ifdef CONFIG_ANDROID_PMEM
 	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_PMEM, pmem),
-#endif
 #ifdef CONFIG_ASHMEM
 	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_ASHMEM, ashmem),
 #endif
@@ -529,21 +527,29 @@ static struct kgsl_memdesc_ops kgsl_coherent_ops = {
 
 void kgsl_cache_range_op(struct kgsl_memdesc *memdesc, int op)
 {
-	void *addr = memdesc->hostptr;
+	/*
+	 * If the buffer is mapped in the kernel operate on that address
+	 * otherwise use the user address
+	 */
+
+	void *addr = (memdesc->hostptr) ?
+		memdesc->hostptr : (void *) memdesc->useraddr;
+
 	int size = memdesc->size;
 
-	switch (op) {
-	case KGSL_CACHE_OP_FLUSH:
-		dmac_flush_range(addr, addr + size);
-		break;
-	case KGSL_CACHE_OP_CLEAN:
-		dmac_clean_range(addr, addr + size);
-		break;
-	case KGSL_CACHE_OP_INV:
-		dmac_inv_range(addr, addr + size);
-		break;
+	if (addr !=  NULL) {
+		switch (op) {
+		case KGSL_CACHE_OP_FLUSH:
+			dmac_flush_range(addr, addr + size);
+			break;
+		case KGSL_CACHE_OP_CLEAN:
+			dmac_clean_range(addr, addr + size);
+			break;
+		case KGSL_CACHE_OP_INV:
+			dmac_inv_range(addr, addr + size);
+			break;
+		}
 	}
-
 	outer_cache_range_op_sg(memdesc->sg, memdesc->sglen, op);
 }
 EXPORT_SYMBOL(kgsl_cache_range_op);
@@ -551,7 +557,7 @@ EXPORT_SYMBOL(kgsl_cache_range_op);
 static int
 _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 			struct kgsl_pagetable *pagetable,
-			size_t size, unsigned int protflags)
+			size_t size)
 {
 	int i, order, ret = 0;
 	int sglen = PAGE_ALIGN(size) / PAGE_SIZE;
@@ -930,12 +936,6 @@ _kgsl_sharedmem_ebimem(struct kgsl_memdesc *memdesc,
 	}
 
 	result = memdesc_sg_phys(memdesc, memdesc->physaddr, size);
-
-	if (result)
-		goto err;
-
-	result = kgsl_mmu_map(pagetable, memdesc,
-		GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
 
 	if (result)
 		goto err;

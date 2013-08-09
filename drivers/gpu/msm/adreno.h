@@ -30,6 +30,7 @@
 
 #define KGSL_CONTEXT_TO_MEM_IDENTIFIER	0x2EADBEEF
 #define KGSL_CMD_IDENTIFIER		0x2EEDFACE
+#define KGSL_CMD_INTERNAL_IDENTIFIER	0x2EEDD00D
 #define KGSL_START_OF_IB_IDENTIFIER	0x2EADEABE
 #define KGSL_END_OF_IB_IDENTIFIER	0x2ABEDEAD
 
@@ -98,9 +99,15 @@ struct adreno_gpudev {
 	irqreturn_t (*irq_handler)(struct adreno_device *);
 	void (*irq_control)(struct adreno_device *, int);
 	void * (*snapshot)(struct adreno_device *, void *, int *, int);
-	void (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
+	int (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
+	void (*perfcounter_init)(struct adreno_device *);
 	void (*start)(struct adreno_device *);
 	unsigned int (*busy_cycles)(struct adreno_device *);
+	void (*perfcounter_enable)(struct adreno_device *, unsigned int group,
+		unsigned int counter, unsigned int countable);
+	uint64_t (*perfcounter_read)(struct adreno_device *adreno_dev,
+		unsigned int group, unsigned int counter,
+		unsigned int offset);
 };
 
 struct adreno_recovery_data {
@@ -113,6 +120,22 @@ struct adreno_recovery_data {
 	unsigned int bad_rb_size;
 	unsigned int last_valid_ctx_id;
 };
+
+/* Fault Tolerance policy flags */
+#define  KGSL_FT_DISABLE                  BIT(0)
+#define  KGSL_FT_REPLAY                   BIT(1)
+#define  KGSL_FT_SKIPIB                   BIT(2)
+#define  KGSL_FT_SKIPFRAME                BIT(3)
+#define  KGSL_FT_TEMP_DISABLE             BIT(4)
+#define  KGSL_FT_DEFAULT_POLICY           (KGSL_FT_REPLAY + KGSL_FT_SKIPIB)
+
+/* Pagefault policy flags */
+#define KGSL_FT_PAGEFAULT_INT_ENABLE         0x00000001
+#define KGSL_FT_PAGEFAULT_GPUHALT_ENABLE     0x00000002
+#define KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE   0x00000004
+#define KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT    0x00000008
+#define KGSL_FT_PAGEFAULT_DEFAULT_POLICY     (KGSL_FT_PAGEFAULT_INT_ENABLE + \
+					KGSL_FT_PAGEFAULT_GPUHALT_ENABLE)
 
 extern struct adreno_gpudev adreno_a2xx_gpudev;
 extern struct adreno_gpudev adreno_a3xx_gpudev;
@@ -155,6 +178,13 @@ int adreno_dump_and_recover(struct kgsl_device *device);
 
 unsigned int adreno_hang_detect(struct kgsl_device *device,
 						unsigned int *prev_reg_val);
+
+int adreno_perfcounter_get(struct adreno_device *adreno_dev,
+	unsigned int groupid, unsigned int countable, unsigned int *offset,
+	unsigned int flags);
+
+int adreno_perfcounter_put(struct adreno_device *adreno_dev,
+	unsigned int groupid, unsigned int countable);
 
 static inline int adreno_is_a200(struct adreno_device *adreno_dev)
 {
@@ -207,9 +237,25 @@ static inline int adreno_is_a305(struct adreno_device *adreno_dev)
 	return (adreno_dev->gpurev == ADRENO_REV_A305);
 }
 
+static inline int adreno_is_a305b(struct adreno_device *adreno_dev)
+{
+	return (adreno_dev->gpurev == ADRENO_REV_A305B);
+}
+
+static inline int adreno_is_a305c(struct adreno_device *adreno_dev)
+{
+	return (adreno_dev->gpurev == ADRENO_REV_A305C);
+}
+
 static inline int adreno_is_a320(struct adreno_device *adreno_dev)
 {
 	return (adreno_dev->gpurev == ADRENO_REV_A320);
+}
+
+static inline int adreno_is_a330v2(struct adreno_device *adreno_dev)
+{
+	return ((adreno_dev->gpurev == ADRENO_REV_A330) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chip_id) > 0));
 }
 
 static inline int adreno_rb_ctxtswitch(unsigned int *cmd)

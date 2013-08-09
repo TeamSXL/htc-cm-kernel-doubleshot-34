@@ -1,0 +1,74 @@
+--- drivers/gpu/ion/ion_iommu_heap.c
++++ drivers/gpu/ion/ion_iommu_heap.c
+@@ -48,8 +48,6 @@
+ 
+ #define MAX_VMAP_RETRIES 10
+ 
+-atomic_t v = ATOMIC_INIT(0);
+-
+ static const unsigned int orders[] = {8, 4, 0};
+ static const int num_orders = ARRAY_SIZE(orders);
+ 
+@@ -72,13 +70,21 @@
+ 	int i;
+ 
+ 	for (i = 0; i < num_orders; i++) {
++		gfp_t gfp;
+ 		if (size < order_to_size(orders[i]))
+ 			continue;
+ 		if (max_order < orders[i])
+ 			continue;
+ 
+-		page = alloc_pages(GFP_KERNEL | __GFP_HIGHMEM | __GFP_COMP,
+-				orders[i]);
++		gfp = __GFP_HIGHMEM;
++
++		if (orders[i]) {
++			gfp |= __GFP_COMP | __GFP_NORETRY |
++			       __GFP_NO_KSWAPD | __GFP_NOWARN;
++		} else {
++			gfp |= GFP_KERNEL;
++		}
++		page = alloc_pages(gfp, orders[i]);
+ 		if (!page)
+ 			continue;
+ 
+@@ -107,7 +113,7 @@
+ 		void *ptr = NULL;
+ 		unsigned int npages_to_vmap, total_pages, num_large_pages = 0;
+ 		long size_remaining = PAGE_ALIGN(size);
+-		unsigned int max_order = orders[0];
++		unsigned int max_order = ION_IS_CACHED(flags) ? 0 : orders[0];
+ 
+ 		data = kmalloc(sizeof(*data), GFP_KERNEL);
+ 		if (!data)
+@@ -199,9 +205,6 @@
+ 						DMA_BIDIRECTIONAL);
+ 
+ 		buffer->priv_virt = data;
+-
+-		atomic_add(data->size, &v);
+-
+ 		return 0;
+ 
+ 	} else {
+@@ -246,19 +249,10 @@
+ 	sg_free_table(table);
+ 	kfree(table);
+ 	table = 0;
+-
+-	atomic_sub(data->size, &v);
+-
+ 	kfree(data->pages);
+ 	kfree(data);
+ }
+ 
+-int ion_iommu_heap_dump_size(void)
+-{
+-	int ret = atomic_read(&v);
+-	return ret;
+-}
+-
+ void *ion_iommu_heap_map_kernel(struct ion_heap *heap,
+ 				struct ion_buffer *buffer)
+ {

@@ -11,6 +11,7 @@
  *
  */
 #include <linux/types.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/spinlock.h>
 #include <linux/genalloc.h>
@@ -71,8 +72,172 @@ static struct kgsl_iommu_device *get_iommu_device(struct kgsl_iommu_unit *unit,
 	return NULL;
 }
 
+/* These functions help find the nearest allocated memory entries on either side
+ * of a faulting address. If we know the nearby allocations memory we can
+ * get a better determination of what we think should have been located in the
+ * faulting region
+ */
+
+/*
+ * A local structure to make it easy to store the interesting bits for the
+ * memory entries on either side of the faulting address
+ */
+
+struct _mem_entry {
+	unsigned int gpuaddr;
+	unsigned int size;
+	unsigned int flags;
+	unsigned int priv;
+	pid_t pid;
+};
+
+/*
+ * Find the closest alloated memory block with an smaller GPU address then the
+ * given address
+ */
+
+static void _prev_entry(struct kgsl_process_private *priv,
+	unsigned int faultaddr, struct _mem_entry *ret)
+{
+	struct rb_node *node;
+	struct kgsl_mem_entry *entry;
+
+	for (node = rb_first(&priv->mem_rb); node; ) {
+		entry = rb_entry(node, struct kgsl_mem_entry, node);
+
+		if (entry->memdesc.gpuaddr > faultaddr)
+			break;
+
+		/*
+		 * If this is closer to the faulting address, then copy
+		 * the entry
+		 */
+
+		if (entry->memdesc.gpuaddr > ret->gpuaddr) {
+			ret->gpuaddr = entry->memdesc.gpuaddr;
+			ret->size = entry->memdesc.size;
+			ret->flags = entry->memdesc.flags;
+			ret->priv = entry->memdesc.priv;
+			ret->pid = priv->pid;
+		}
+
+		node = rb_next(&entry->node);
+	}
+}
+
+/*
+ * Find the closest alloated memory block with a greater starting GPU address
+ * then the given address
+ */
+
+static void _next_entry(struct kgsl_process_private *priv,
+	unsigned int faultaddr, struct _mem_entry *ret)
+{
+	struct rb_node *node;
+	struct kgsl_mem_entry *entry;
+
+	for (node = rb_last(&priv->mem_rb); node; ) {
+		entry = rb_entry(node, struct kgsl_mem_entry, node);
+
+		if (entry->memdesc.gpuaddr < faultaddr)
+			break;
+
+		/*
+		 * If this is closer to the faulting address, then copy
+		 * the entry
+		 */
+
+		if (entry->memdesc.gpuaddr < ret->gpuaddr) {
+			ret->gpuaddr = entry->memdesc.gpuaddr;
+			ret->size = entry->memdesc.size;
+			ret->flags = entry->memdesc.flags;
+			ret->priv = entry->memdesc.priv;
+			ret->pid = priv->pid;
+		}
+
+		node = rb_prev(&entry->node);
+	}
+}
+
+static void _find_mem_entries(struct kgsl_mmu *mmu, unsigned int faultaddr,
+	unsigned int ptbase, struct _mem_entry *preventry,
+	struct _mem_entry *nextentry)
+{
+	struct kgsl_process_private *private;
+	int id = kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase);
+
+	memset(preventry, 0, sizeof(*preventry));
+	memset(nextentry, 0, sizeof(*nextentry));
+
+	/* Set the maximum possible size as an initial value */
+	nextentry->gpuaddr = 0xFFFFFFFF;
+
+	mutex_lock(&kgsl_driver.process_mutex);
+
+	list_for_each_entry(private, &kgsl_driver.process_list, list) {
+
+		if (private->pagetable->name != id)
+			continue;
+
+		spin_lock(&private->mem_lock);
+		_prev_entry(private, faultaddr, preventry);
+		_next_entry(private, faultaddr, nextentry);
+		spin_unlock(&private->mem_lock);
+	}
+
+	mutex_unlock(&kgsl_driver.process_mutex);
+}
+
+static void _print_entry(struct kgsl_device *device, struct _mem_entry *entry)
+{
+	char name[32];
+	memset(name, 0, sizeof(name));
+
+	kgsl_get_memory_usage(name, sizeof(name) - 1, entry->flags);
+
+	KGSL_LOG_DUMP(device,
+		"[%8.8X - %8.8X] %s (pid = %d) (%s)\n",
+		entry->gpuaddr,
+		entry->gpuaddr + entry->size,
+		entry->priv & KGSL_MEMDESC_GUARD_PAGE ? "(+guard)" : "",
+		entry->pid, name);
+}
+
+static void _check_if_freed(struct kgsl_iommu_device *iommu_dev,
+	unsigned long addr, unsigned int pid)
+{
+	void *base = kgsl_driver.memfree_hist.base_hist_rb;
+	struct kgsl_memfree_hist_elem *wptr;
+	struct kgsl_memfree_hist_elem *p;
+
+	mutex_lock(&kgsl_driver.memfree_hist_mutex);
+	wptr = kgsl_driver.memfree_hist.wptr;
+	p = wptr;
+	for (;;) {
+		if (p->size && p->pid == pid)
+			if (addr >= p->gpuaddr &&
+				addr < (p->gpuaddr + p->size)) {
+
+				KGSL_LOG_DUMP(iommu_dev->kgsldev,
+					"---- premature free ----\n");
+				KGSL_LOG_DUMP(iommu_dev->kgsldev,
+					"[%8.8X-%8.8X] was already freed by pid %d\n",
+					p->gpuaddr,
+					p->gpuaddr + p->size,
+					p->pid);
+			}
+		p++;
+		if ((void *)p >= base + kgsl_driver.memfree_hist.size)
+			p = (struct kgsl_memfree_hist_elem *) base;
+
+		if (p == kgsl_driver.memfree_hist.wptr)
+			break;
+	}
+	mutex_unlock(&kgsl_driver.memfree_hist_mutex);
+}
+
 static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
-	struct device *dev, unsigned long addr, int flags)
+	struct device *dev, unsigned long addr, int flags, void *token)
 {
 	struct kgsl_iommu_unit *iommu_unit = get_iommu_unit(dev);
 	struct kgsl_iommu_device *iommu_dev = get_iommu_device(iommu_unit, dev);
@@ -337,29 +502,29 @@ static int _get_iommu_ctxs(struct kgsl_mmu *mmu,
 {
 	struct kgsl_iommu *iommu = mmu->priv;
 	struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[unit_id];
-	int i;
+	int i, j;
+	int found_ctx;
 
-	if (data->iommu_ctx_count > KGSL_IOMMU_MAX_DEVS_PER_UNIT) {
-		KGSL_CORE_ERR("Too many iommu devices defined for an "
-				"IOMMU unit\n");
-		return -EINVAL;
-	}
-
-	for (i = 0; i < data->iommu_ctx_count; i++) {
-		if (!data->iommu_ctxs[i].iommu_ctx_name)
-			continue;
+	for (j = 0; j < KGSL_IOMMU_MAX_DEVS_PER_UNIT; j++) {
+		found_ctx = 0;
+		for (i = 0; i < data->iommu_ctx_count; i++) {
+			if (j == data->iommu_ctxs[i].ctx_id) {
+				found_ctx = 1;
+				break;
+			}
+		}
+		if (!found_ctx)
+			break;
+		if (!data->iommu_ctxs[i].iommu_ctx_name) {
+			KGSL_CORE_ERR("Context name invalid\n");
+			return -EINVAL;
+		}
 
 		iommu_unit->dev[iommu_unit->dev_count].dev =
 			msm_iommu_get_ctx(data->iommu_ctxs[i].iommu_ctx_name);
 		if (iommu_unit->dev[iommu_unit->dev_count].dev == NULL) {
 			KGSL_CORE_ERR("Failed to get iommu dev handle for "
 			"device %s\n", data->iommu_ctxs[i].iommu_ctx_name);
-			return -EINVAL;
-		}
-		if (KGSL_IOMMU_CONTEXT_USER != data->iommu_ctxs[i].ctx_id &&
-			KGSL_IOMMU_CONTEXT_PRIV != data->iommu_ctxs[i].ctx_id) {
-			KGSL_CORE_ERR("Invalid context ID defined: %d\n",
-					data->iommu_ctxs[i].ctx_id);
 			return -EINVAL;
 		}
 		iommu_unit->dev[iommu_unit->dev_count].ctx_id =
@@ -490,6 +655,75 @@ static void kgsl_iommu_setstate(struct kgsl_mmu *mmu,
 	}
 }
 
+/*
+ * kgsl_iommu_setup_regs - map iommu registers into a pagetable
+ * @mmu: Pointer to mmu structure
+ * @pt: the pagetable
+ *
+ * To do pagetable switches from the GPU command stream, the IOMMU
+ * registers need to be mapped into the GPU's pagetable. This function
+ * is used differently on different targets. On 8960, the registers
+ * are mapped into every pagetable during kgsl_setup_pt(). On
+ * all other targets, the registers are mapped only into the second
+ * context bank.
+ *
+ * Return - 0 on success else error code
+ */
+static int kgsl_iommu_setup_regs(struct kgsl_mmu *mmu,
+				    struct kgsl_pagetable *pt)
+{
+	int status;
+	int i = 0;
+	struct kgsl_iommu *iommu = mmu->priv;
+
+	if (!msm_soc_version_supports_iommu_v0())
+		return 0;
+
+	for (i = 0; i < iommu->unit_count; i++) {
+		status = kgsl_mmu_map_global(pt,
+				&(iommu->iommu_units[i].reg_map));
+		if (status)
+			goto err;
+	}
+
+	/* Map Lock variables to GPU pagetable */
+	if (iommu->sync_lock_initialized) {
+		status = kgsl_mmu_map_global(pt, &iommu->sync_lock_desc);
+		if (status)
+			goto err;
+	}
+
+	return 0;
+err:
+	for (i--; i >= 0; i--)
+		kgsl_mmu_unmap(pt,
+				&(iommu->iommu_units[i].reg_map));
+
+	return status;
+}
+
+/*
+ * kgsl_iommu_cleanup_regs - unmap iommu registers from a pagetable
+ * @mmu: Pointer to mmu structure
+ * @pt: the pagetable
+ *
+ * Removes mappings created by kgsl_iommu_setup_regs().
+ *
+ * Return - 0 on success else error code
+ */
+static void kgsl_iommu_cleanup_regs(struct kgsl_mmu *mmu,
+					struct kgsl_pagetable *pt)
+{
+	struct kgsl_iommu *iommu = mmu->priv;
+	int i;
+	for (i = 0; i < iommu->unit_count; i++)
+		kgsl_mmu_unmap(pt, &(iommu->iommu_units[i].reg_map));
+
+	if (iommu->sync_lock_desc.gpuaddr)
+		kgsl_mmu_unmap(pt, &iommu->sync_lock_desc);
+}
+
+
 static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 {
 	int status = 0;
@@ -513,6 +747,15 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	kgsl_sharedmem_writel(&mmu->setstate_memory,
 				KGSL_IOMMU_SETSTATE_NOP_OFFSET,
 				cp_nop_packet(1));
+
+	if (cpu_is_msm8960()) {
+		/*
+		 * 8960 doesn't have a second context bank, so the IOMMU
+		 * registers must be mapped into every pagetable.
+		 */
+		iommu_ops.mmu_setup_pt = kgsl_iommu_setup_regs;
+		iommu_ops.mmu_cleanup_pt = kgsl_iommu_cleanup_regs;
+	}
 
 	dev_info(mmu->device->dev, "|%s| MMU type set for device is IOMMU\n",
 			__func__);
@@ -631,6 +874,13 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 						iommu_unit->dev[j].ctx_id,
 						TTBR0));
 	}
+	kgsl_iommu_lock_rb_in_tlb(mmu);
+	msm_iommu_unlock();
+
+	/* For complete CFF */
+	kgsl_cffdump_setmem(mmu->setstate_memory.gpuaddr +
+				KGSL_IOMMU_SETSTATE_NOP_OFFSET,
+				cp_nop_packet(1), sizeof(unsigned int));
 
 	kgsl_iommu_disable_clk_on_ts(mmu, 0, false);
 	mmu->flags |= KGSL_FLAGS_STARTED;
@@ -644,13 +894,13 @@ done:
 }
 
 static int
-kgsl_iommu_unmap(void *mmu_specific_pt,
+kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 		struct kgsl_memdesc *memdesc,
 		unsigned int *tlb_flags)
 {
 	int ret;
 	unsigned int range = kgsl_sg_size(memdesc->sg, memdesc->sglen);
-	struct kgsl_iommu_pt *iommu_pt = mmu_specific_pt;
+	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 
 
 	unsigned int gpuaddr = memdesc->gpuaddr &  KGSL_MMU_ALIGN_MASK;
@@ -723,22 +973,28 @@ static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = mmu->priv;
 	int i;
-	for (i = 0; i < iommu->unit_count; i++) {
-		struct kgsl_pagetable *pagetable = (mmu->priv_bank_table ?
-			mmu->priv_bank_table : mmu->defaultpagetable);
-		if (iommu->iommu_units[i].reg_map.gpuaddr)
-			kgsl_mmu_unmap(pagetable,
-			&(iommu->iommu_units[i].reg_map));
-		if (iommu->iommu_units[i].reg_map.hostptr)
-			iounmap(iommu->iommu_units[i].reg_map.hostptr);
-		kgsl_sg_free(iommu->iommu_units[i].reg_map.sg,
-				iommu->iommu_units[i].reg_map.sglen);
+
+	if (mmu->priv_bank_table != NULL) {
+		kgsl_iommu_cleanup_regs(mmu, mmu->priv_bank_table);
+		kgsl_mmu_putpagetable(mmu->priv_bank_table);
 	}
 
-	if (mmu->priv_bank_table)
-		kgsl_mmu_putpagetable(mmu->priv_bank_table);
-	if (mmu->defaultpagetable)
+	if (mmu->defaultpagetable != NULL)
 		kgsl_mmu_putpagetable(mmu->defaultpagetable);
+
+	for (i = 0; i < iommu->unit_count; i++) {
+		struct kgsl_memdesc *reg_map = &iommu->iommu_units[i].reg_map;
+
+		if (reg_map->hostptr)
+			iounmap(reg_map->hostptr);
+		kgsl_sg_free(reg_map->sg, reg_map->sglen);
+		reg_map->priv &= ~KGSL_MEMDESC_GLOBAL;
+	}
+	/* clear IOMMU GPU CPU sync structures */
+	kgsl_sg_free(iommu->sync_lock_desc.sg, iommu->sync_lock_desc.sglen);
+	memset(&iommu->sync_lock_desc, 0, sizeof(iommu->sync_lock_desc));
+	iommu->sync_lock_vars = NULL;
+
 	kfree(iommu);
 
 	return 0;

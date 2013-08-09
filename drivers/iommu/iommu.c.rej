@@ -1,0 +1,10 @@
+--- drivers/iommu/iommu.c
++++ drivers/iommu/iommu.c
+@@ -631,6 +1142,7 @@
+  * iommu_set_fault_handler() - set a fault handler for an iommu domain
+  * @domain: iommu domain
+  * @handler: fault handler
++ * @token: user data, will be passed back to the fault handler
+  *
+  * This function should be used by IOMMU users which want to be notified
+  * whenever an IOMMU fault happens.

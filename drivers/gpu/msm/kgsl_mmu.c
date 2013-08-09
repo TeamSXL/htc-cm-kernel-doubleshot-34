@@ -100,7 +100,7 @@ static void kgsl_destroy_pagetable(struct kref *kref)
 	if (pagetable->pool)
 		gen_pool_destroy(pagetable->pool);
 
-	pagetable->pt_ops->mmu_destroy_pagetable(pagetable->priv);
+	pagetable->pt_ops->mmu_destroy_pagetable(pagetable);
 
 	kfree(pagetable);
 }
@@ -190,7 +190,7 @@ sysfs_show_va_range(struct kobject *kobj,
 
 	if (pt) {
 		ret += snprintf(buf, PAGE_SIZE, "0x%x\n",
-			kgsl_mmu_get_ptsize());
+			kgsl_mmu_get_ptsize(pt->mmu));
 	}
 
 	kgsl_put_pagetable(pt);
@@ -422,7 +422,8 @@ void kgsl_mh_intrcallback(struct kgsl_device *device)
 }
 EXPORT_SYMBOL(kgsl_mh_intrcallback);
 
-static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
+static struct kgsl_pagetable *
+kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 				unsigned int name)
 {
 	int status = 0;
@@ -441,18 +442,18 @@ static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 
 	spin_lock_init(&pagetable->lock);
 
-	ptsize = kgsl_mmu_get_ptsize();
-
+	ptsize = kgsl_mmu_get_ptsize(mmu);
+	pagetable->mmu = mmu;
 	pagetable->name = name;
 	pagetable->max_entries = KGSL_PAGETABLE_ENTRIES(ptsize);
 
 	if ((KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()) &&
 		((KGSL_MMU_GLOBAL_PT == name) ||
 		(KGSL_MMU_PRIV_BANK_TABLE_NAME == name))) {
-		pagetable->kgsl_pool = gen_pool_create(PAGE_SHIFT, -1);
+		pagetable->kgsl_pool = gen_pool_create(ilog2(SZ_8K), -1);
 		if (pagetable->kgsl_pool == NULL) {
 			KGSL_CORE_ERR("gen_pool_create(%d) failed\n",
-					KGSL_MMU_ALIGN_SHIFT);
+					ilog2(SZ_8K));
 			goto err_alloc;
 		}
 		if (gen_pool_add(pagetable->kgsl_pool,
@@ -463,14 +464,14 @@ static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 		}
 	}
 
-	pagetable->pool = gen_pool_create(KGSL_MMU_ALIGN_SHIFT, -1);
+	pagetable->pool = gen_pool_create(PAGE_SHIFT, -1);
 	if (pagetable->pool == NULL) {
 		KGSL_CORE_ERR("gen_pool_create(%d) failed\n",
-			      KGSL_MMU_ALIGN_SHIFT);
+			      PAGE_SHIFT);
 		goto err_kgsl_pool;
 	}
 
-	if (gen_pool_add(pagetable->pool, KGSL_PAGETABLE_BASE,
+	if (gen_pool_add(pagetable->pool, kgsl_mmu_get_base_addr(mmu),
 				ptsize, -1)) {
 		KGSL_CORE_ERR("gen_pool_add failed\n");
 		goto err_pool;
@@ -499,7 +500,7 @@ static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 	return pagetable;
 
 err_mmu_create:
-	pagetable->pt_ops->mmu_destroy_pagetable(pagetable->priv);
+	pagetable->pt_ops->mmu_destroy_pagetable(pagetable);
 err_pool:
 	gen_pool_destroy(pagetable->pool);
 err_kgsl_pool:
@@ -648,7 +649,8 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 
 err_free_gpuaddr:
 	spin_unlock(&pagetable->lock);
-	gen_pool_free(pool, memdesc->gpuaddr, size);
+	if (pool)
+		gen_pool_free(pool, memdesc->gpuaddr, size);
 	memdesc->gpuaddr = 0;
 	return ret;
 }
@@ -673,7 +675,7 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 
 	if (KGSL_MMU_TYPE_IOMMU != kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
-	pagetable->pt_ops->mmu_unmap(pagetable->priv, memdesc,
+	pagetable->pt_ops->mmu_unmap(pagetable, memdesc,
 					&pagetable->tlb_flags);
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);

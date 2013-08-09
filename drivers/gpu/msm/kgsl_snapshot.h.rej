@@ -1,0 +1,20 @@
+--- drivers/gpu/msm/kgsl_snapshot.h
++++ drivers/gpu/msm/kgsl_snapshot.h
+@@ -104,6 +105,17 @@
+ 	int count;  /* Number of dwords in the dump */
+ } __packed;
+ 
++/* Replay or Memory list section, both sections have same header */
++struct kgsl_snapshot_replay_mem_list {
++	/*
++	 * Number of IBs to replay for replay section or
++	 * number of memory list entries for mem list section
++	 */
++	int num_entries;
++	/* Pagetable base to which the replay IBs or memory entries belong */
++	__u32 ptbase;
++} __packed;
++
+ /* Indirect buffer sub-section header */
+ struct kgsl_snapshot_ib {
+ 	__u32 gpuaddr; /* GPU address of the the IB */

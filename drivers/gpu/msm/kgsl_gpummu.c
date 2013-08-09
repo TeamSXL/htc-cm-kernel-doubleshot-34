@@ -19,9 +19,11 @@
 
 #include "kgsl.h"
 #include "kgsl_mmu.h"
+#include "kgsl_gpummu.h"
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_trace.h"
+#include "adreno.h"
 
 #define KGSL_PAGETABLE_SIZE \
 	ALIGN(KGSL_PAGETABLE_ENTRIES(CONFIG_MSM_KGSL_PAGE_TABLE_SIZE) * \
@@ -161,7 +163,7 @@ err:
 }
 
 static void *
-_kgsl_ptpool_get_entry(struct kgsl_ptpool *pool, unsigned int *physaddr)
+_kgsl_ptpool_get_entry(struct kgsl_ptpool *pool, phys_addr_t *physaddr)
 {
 	struct kgsl_ptpool_chunk *chunk;
 
@@ -208,7 +210,7 @@ kgsl_ptpool_add(struct kgsl_ptpool *pool, int count)
 
 
 static void *kgsl_ptpool_alloc(struct kgsl_ptpool *pool,
-				unsigned int *physaddr)
+				phys_addr_t *physaddr)
 {
 	void *addr = NULL;
 	int ret;
@@ -329,10 +331,9 @@ int kgsl_gpummu_pt_equal(struct kgsl_pagetable *pt,
 	return gpummu_pt && pt_base && (gpummu_pt->base.gpuaddr == pt_base);
 }
 
-void kgsl_gpummu_destroy_pagetable(void *mmu_specific_pt)
+void kgsl_gpummu_destroy_pagetable(struct kgsl_pagetable *pt)
 {
-	struct kgsl_gpummu_pt *gpummu_pt = (struct kgsl_gpummu_pt *)
-						mmu_specific_pt;
+	struct kgsl_gpummu_pt *gpummu_pt = pt->priv;
 	kgsl_ptpool_free((struct kgsl_ptpool *)kgsl_driver.ptpool,
 				gpummu_pt->base.hostptr);
 
@@ -369,11 +370,22 @@ static void kgsl_gpummu_pagefault(struct kgsl_mmu *mmu)
 {
 	unsigned int reg;
 	unsigned int ptbase;
+	struct kgsl_device *device;
+	struct adreno_device *adreno_dev;
+	unsigned int no_page_fault_log = 0;
 
-	kgsl_regread(mmu->device, MH_MMU_PAGE_FAULT, &reg);
-	kgsl_regread(mmu->device, MH_MMU_PT_BASE, &ptbase);
+	device = mmu->device;
+	adreno_dev = ADRENO_DEVICE(device);
 
-	KGSL_MEM_CRIT(mmu->device,
+	kgsl_regread(device, MH_MMU_PAGE_FAULT, &reg);
+	kgsl_regread(device, MH_MMU_PT_BASE, &ptbase);
+
+
+	if (adreno_dev->ft_pf_policy & KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE)
+		no_page_fault_log = kgsl_mmu_log_fault_addr(mmu, ptbase, reg);
+
+	if (!no_page_fault_log)
+		KGSL_MEM_CRIT(mmu->device,
 			"mmu page fault: page=0x%lx pt=%d op=%s axi=%d\n",
 			reg & ~(PAGE_SIZE - 1),
 			kgsl_mmu_get_ptname_from_ptbase(ptbase),
@@ -515,7 +527,7 @@ static int kgsl_gpummu_start(struct kgsl_mmu *mmu)
 
 	if (mmu->defaultpagetable == NULL)
 		mmu->defaultpagetable =
-			kgsl_mmu_getpagetable(KGSL_MMU_GLOBAL_PT);
+			kgsl_mmu_getpagetable(mmu, KGSL_MMU_GLOBAL_PT);
 
 	
 	if (mmu->defaultpagetable == NULL)
@@ -535,14 +547,14 @@ static int kgsl_gpummu_start(struct kgsl_mmu *mmu)
 }
 
 static int
-kgsl_gpummu_unmap(void *mmu_specific_pt,
+kgsl_gpummu_unmap(struct kgsl_pagetable *pt,
 		struct kgsl_memdesc *memdesc,
 		unsigned int *tlb_flags)
 {
 	unsigned int numpages;
 	unsigned int pte, ptefirst, ptelast, superpte;
 	unsigned int range = kgsl_sg_size(memdesc->sg, memdesc->sglen);
-	struct kgsl_gpummu_pt *gpummu_pt = mmu_specific_pt;
+	struct kgsl_gpummu_pt *gpummu_pt = pt->priv;
 
 
 	unsigned int gpuaddr = memdesc->gpuaddr &  KGSL_MMU_ALIGN_MASK;
@@ -581,13 +593,13 @@ kgsl_gpummu_unmap(void *mmu_specific_pt,
 GSL_TLBFLUSH_FILTER_ISDIRTY((_p) / GSL_PT_SUPER_PTE))
 
 static int
-kgsl_gpummu_map(void *mmu_specific_pt,
+kgsl_gpummu_map(struct kgsl_pagetable *pt,
 		struct kgsl_memdesc *memdesc,
 		unsigned int protflags,
 		unsigned int *tlb_flags)
 {
 	unsigned int pte;
-	struct kgsl_gpummu_pt *gpummu_pt = mmu_specific_pt;
+	struct kgsl_gpummu_pt *gpummu_pt = pt->priv;
 	struct scatterlist *s;
 	int flushtlb = 0;
 	int i;

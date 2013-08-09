@@ -58,6 +58,23 @@
 #define KGSL_STATS_ADD(_size, _stat, _max) \
 	do { _stat += (_size); if (_stat > _max) _max = _stat; } while (0)
 
+
+#define KGSL_MEMFREE_HIST_SIZE	((int)(PAGE_SIZE * 2))
+
+struct kgsl_memfree_hist_elem {
+	unsigned int pid;
+	unsigned int gpuaddr;
+	unsigned int size;
+	unsigned int flags;
+};
+
+struct kgsl_memfree_hist {
+	void *base_hist_rb;
+	unsigned int size;
+	struct kgsl_memfree_hist_elem *wptr;
+};
+
+
 struct kgsl_device;
 
 struct kgsl_driver {
@@ -84,6 +101,9 @@ struct kgsl_driver {
 	struct mutex devlock;
 
 	void *ptpool;
+
+	struct mutex memfree_hist_mutex;
+	struct kgsl_memfree_hist memfree_hist;
 
 	struct {
 		unsigned int vmalloc;
@@ -215,6 +235,10 @@ static inline void kgsl_drm_exit(void)
 static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 				unsigned int gpuaddr, unsigned int size)
 {
+	/* don't overflow */
+	if ((gpuaddr + size) < gpuaddr)
+		return 0;
+
 	if (gpuaddr >= memdesc->gpuaddr &&
 	    ((gpuaddr + size) <= (memdesc->gpuaddr + memdesc->size))) {
 		return 1;

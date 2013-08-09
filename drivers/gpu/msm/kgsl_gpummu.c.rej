@@ -1,35 +1,20 @@
 --- drivers/gpu/msm/kgsl_gpummu.c
 +++ drivers/gpu/msm/kgsl_gpummu.c
-@@ -545,23 +597,28 @@
- 	if (mmu->flags & KGSL_FLAGS_STARTED)
- 		return 0;
+@@ -1,4 +1,4 @@
+-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
++/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 and
+@@ -528,6 +540,11 @@
+ 	 */
+ 	int status = 0;
  
--	
-+	/* MMU not enabled */
- 	if ((mmu->config & 0x1) == 0)
- 		return 0;
- 
--	
-+	/* setup MMU and sub-client behavior */
- 	kgsl_regwrite(device, MH_MMU_CONFIG, mmu->config);
- 
--	
-+	/* idle device */
- 	kgsl_idle(device);
- 
--	
-+	/* enable axi interrupts */
- 	kgsl_regwrite(device, MH_INTERRUPT_MASK,
- 			GSL_MMU_INT_MASK | MH_INTERRUPT_MASK__MMU_PAGE_FAULT);
- 
- 	kgsl_sharedmem_set(&mmu->setstate_memory, 0, 0,
- 			   mmu->setstate_memory.size);
- 
-+	/* TRAN_ERROR needs a 32 byte (32 byte aligned) chunk of memory
-+	 * to complete transactions in case of an MMU fault. Note that
-+	 * we'll leave the bottom 32 bytes of the setstate_memory for other
-+	 * purposes (e.g. use it when dummy read cycles are needed
-+	 * for other blocks) */
- 	kgsl_regwrite(device, MH_MMU_TRAN_ERROR,
- 		mmu->setstate_memory.physaddr + 32);
- 
++	mmu->pt_base = KGSL_PAGETABLE_BASE;
++	mmu->pt_size = CONFIG_MSM_KGSL_PAGE_TABLE_SIZE;
++	mmu->pt_per_process = KGSL_MMU_USE_PER_PROCESS_PT;
++	mmu->use_cpu_map = false;
++
+ 	/* sub-client MMU lookups require address translation */
+ 	if ((mmu->config & ~0x1) > 0) {
+ 		/*make sure virtual address range is a multiple of 64Kb */

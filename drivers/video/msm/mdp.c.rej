@@ -1,164 +1,67 @@
 --- drivers/video/msm/mdp.c
 +++ drivers/video/msm/mdp.c
-@@ -941,22 +987,20 @@
- 		mgmt->hist = NULL;
- 		complete(&mgmt->mdp_hist_comp);
- 	}
-+
- 	return 0;
- }
- 
-+/*call when spanning mgmt_array only*/
- int _mdp_histogram_ctrl(boolean en, struct mdp_hist_mgmt *mgmt)
- {
- 	int ret = 0;
- 
- 	mutex_lock(&mgmt->mdp_hist_mutex);
--	if (mgmt->mdp_is_hist_start == TRUE) {
--		if (en)
--			ret = mdp_histogram_enable(mgmt);
--		else
--			ret = mdp_histogram_disable(mgmt);
--	} else {
--		pr_debug("%s start = false\n", __func__);
--	}
-+	if (mgmt->mdp_is_hist_start && !mgmt->mdp_is_hist_data && en)
-+		ret = mdp_histogram_enable(mgmt);
-+	else if (mgmt->mdp_is_hist_data && !en)
-+		ret = mdp_histogram_disable(mgmt);
- 	mutex_unlock(&mgmt->mdp_hist_mutex);
- 
- 	if (en == false)
-@@ -2271,60 +2544,110 @@
+@@ -2236,8 +2203,8 @@
  			mfd->panel.type == LCDC_PANEL ||
  			mfd->panel.type == LVDS_PANEL)
  		mdp4_lcdc_off(pdev);
-+	else if (mfd->panel.type == WRITEBACK_PANEL)
-+		mdp4_overlay_writeback_off(pdev);
+-	else if (mfd->panel.type == WRITEBACK_PANEL)
+-		mdp4_overlay_writeback_off(pdev);
++	else if (mfd->panel.type == MDDI_PANEL)
++		mdp4_mddi_off(pdev);
  
  	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
  	ret = panel_next_off(pdev);
- 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
- 	mdp_clk_ctrl(0);
--
-+#ifdef CONFIG_MSM_BUS_SCALING
-+	mdp_bus_scale_update_request(0, 0);
-+#endif
- 	if (mdp_rev >= MDP_REV_41 && mfd->panel.type == MIPI_CMD_PANEL)
- 		mdp_dsi_cmd_overlay_suspend(mfd);
-+	pr_debug("%s:-\n", __func__);
- 	return ret;
- }
+@@ -2271,26 +2235,9 @@
  
--static struct msm_panel_common_pdata *mdp_pdata;
-+#ifdef CONFIG_FB_MSM_MDP303
-+unsigned is_mdp4_hw_reset(void)
-+{
-+	return 0;
-+}
-+void mdp4_hw_init(void)
-+{
-+	/* empty */
-+}
-+
-+#endif
-+
-+static int mdp_bus_scale_restore_request(void);
+ 	pr_debug("%s:+\n", __func__);
  
- static int mdp_on(struct platform_device *pdev)
- {
- 	int ret = 0;
--#ifdef CONFIG_FB_MSM_MDP40
- 	struct msm_fb_data_type *mfd;
+-	if (!(mfd->cont_splash_done)) {
+-		if (mfd->panel.type == MIPI_VIDEO_PANEL)
+-			mdp4_dsi_video_splash_done();
 -
- 	mfd = platform_get_drvdata(pdev);
+-		/* Clks are enabled in probe.
+-		Disabling clocks now */
+-		mdp_clk_ctrl(0);
+-		mfd->cont_splash_done = 1;
+-	}
+-
 -	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
--	mdp_clk_ctrl(1);
--	mdp4_hw_init();
--	outpdw(MDP_BASE + 0x0038, mdp4_display_intf);
--	if (mfd->panel.type == MIPI_CMD_PANEL) {
--		mdp_vsync_cfg_regs(mfd, FALSE);
--		mdp4_dsi_cmd_on(pdev);
--	} else if (mfd->panel.type == MIPI_VIDEO_PANEL)
--		mdp4_dsi_video_on(pdev);
--	else if (mfd->panel.type == HDMI_PANEL ||
--			mfd->panel.type == LCDC_PANEL ||
--			mfd->panel.type == LVDS_PANEL)
--		mdp4_lcdc_on(pdev);
- 
--	mdp_clk_ctrl(0);
+-
+-	ret = panel_next_on(pdev);
 -	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
--#endif
-+	pr_debug("%s:+\n", __func__);
-+
-+	if (!(mfd->cont_splash_done)) {
-+		if (mfd->panel.type == MIPI_VIDEO_PANEL)
-+			mdp4_dsi_video_splash_done();
-+
-+		/* Clks are enabled in probe.
-+		Disabling clocks now */
-+		mdp_clk_ctrl(0);
-+		mfd->cont_splash_done = 1;
-+	}
- 
- 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-+
- 	ret = panel_next_on(pdev);
- 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
- 
-+
-+	if (mdp_rev >= MDP_REV_40) {
-+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-+		mdp_clk_ctrl(1);
-+		mdp_bus_scale_restore_request();
-+		mdp4_hw_init();
-+		outpdw(MDP_BASE + 0x0038, mdp4_display_intf);
-+		if (mfd->panel.type == MIPI_CMD_PANEL) {
-+			mdp_vsync_cfg_regs(mfd, FALSE);
-+			mdp4_dsi_cmd_on(pdev);
-+		} else if (mfd->panel.type == MIPI_VIDEO_PANEL) {
-+			mdp4_dsi_video_on(pdev);
-+		} else if (mfd->panel.type == HDMI_PANEL ||
-+				mfd->panel.type == LCDC_PANEL ||
-+				mfd->panel.type == LVDS_PANEL) {
-+			mdp4_lcdc_on(pdev);
-+		}
-+
-+		mdp_clk_ctrl(0);
-+		mdp4_overlay_reset();
-+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-+	}
-+
-+	if (mdp_rev == MDP_REV_303 && mfd->panel.type == MIPI_CMD_PANEL) {
-+
-+		vsync_cntrl.dev = mfd->fbi->dev;
-+		atomic_set(&vsync_cntrl.suspend, 1);
-+	}
-+
- 	mdp_histogram_ctrl_all(TRUE);
- 
--	if (mdp_pdata->mdp_gamma)
--		mdp_pdata->mdp_gamma();
-+	if (ret == 0)
-+		ret = panel_next_late_init(pdev);
-+
-+	pr_debug("%s:-\n", __func__);
- 
- 	return ret;
+-
+-
+ 	if (mdp_rev >= MDP_REV_40) {
+ 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+ 		mdp_clk_ctrl(1);
+-		mdp_bus_scale_restore_request();
+ 		mdp4_hw_init();
+ 		outpdw(MDP_BASE + 0x0038, mdp4_display_intf);
+ 		if (mfd->panel.type == MIPI_CMD_PANEL) {
+@@ -2410,21 +2365,18 @@
+ 		mdp_bus_usecases[i].num_paths = 1;
+ 		mdp_bus_usecases[i].vectors = &mdp_bus_vectors[i];
+ 	}
+-
++	mdp_bus_scale_handle = msm_bus_scale_register_client(bus_pdata);
+ 	if (!mdp_bus_scale_handle) {
+-		mdp_bus_scale_handle = msm_bus_scale_register_client(bus_pdata);
+-		if (!mdp_bus_scale_handle) {
+-			pr_err("%s: not able to get bus scale!\n", __func__);
+-			return -ENOMEM;
+-		}
++		pr_err("%s: not able to get bus scale!\n", __func__);
++		return -ENOMEM;
+ 	}
+-
+ 	return 0;
  }
  
- static int mdp_resource_initialized;
-+static struct msm_panel_common_pdata *mdp_pdata;
- 
- uint32 mdp_hw_revision;
- 
-+/*
-+ * mdp_hw_revision:
-+ * 0 == V1
-+ * 1 == V2
-+ * 2 == V2.1
-+ *
-+ */
- void mdp_hw_version(void)
+-static int bus_index = 1;
+ int mdp_bus_scale_update_request(u64 ab, u64 ib)
  {
- 	char *cp;
++	static int bus_index = 1;
++
+ 	if (mdp_bus_scale_handle < 1) {
+ 		pr_err("%s invalid bus handle\n", __func__);
+ 		return -EINVAL;

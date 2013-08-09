@@ -1358,8 +1358,6 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 		return;
 	}
 
-	KGSL_CTXT_INFO(device, "context flags %08x\n", context->flags);
-
 	cmds[0] = cp_nop_packet(1);
 	cmds[1] = KGSL_CONTEXT_TO_MEM_IDENTIFIER;
 	cmds[2] = cp_type3_packet(CP_MEM_WRITE, 2);
@@ -1392,6 +1390,9 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 	}
 
 	if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
+		kgsl_cffdump_syncmem(NULL, &context->gpustate,
+			context->reg_restore[1],
+			context->reg_restore[2] << 2, true);
 
 		
 		adreno_ringbuffer_issuecmds(device, context,
@@ -1399,6 +1400,10 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 
 		
 		if (context->flags & CTXT_FLAGS_SHADER_RESTORE) {
+			kgsl_cffdump_syncmem(NULL, &context->gpustate,
+				context->shader_restore[1],
+				context->shader_restore[2] << 2, true);
+
 			adreno_ringbuffer_issuecmds(device, context,
 				KGSL_CMD_FLAGS_NONE,
 				context->shader_restore, 3);
@@ -1504,12 +1509,8 @@ static void a2xx_cp_intrcallback(struct kgsl_device *device)
 	adreno_regwrite(device, REG_CP_INT_ACK, status);
 
 	if (status & (CP_INT_CNTL__IB1_INT_MASK | CP_INT_CNTL__RB_INT_MASK)) {
-		KGSL_CMD_WARN(rb->device, "ringbuffer ib1/rb interrupt\n");
 		queue_work(device->work_queue, &device->ts_expired_ws);
 		wake_up_interruptible_all(&device->wait_queue);
-		atomic_notifier_call_chain(&(device->ts_notifier_list),
-					   device->id,
-					   NULL);
 	}
 }
 
@@ -1644,6 +1645,8 @@ static void a2xx_rb_init(struct adreno_device *adreno_dev,
 	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000000);
 
 	adreno_ringbuffer_submit(rb);
+
+	return 0;
 }
 
 static unsigned int a2xx_busy_cycles(struct adreno_device *adreno_dev)

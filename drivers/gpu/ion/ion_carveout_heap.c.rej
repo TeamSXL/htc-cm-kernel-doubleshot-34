@@ -1,18 +1,79 @@
 --- drivers/gpu/ion/ion_carveout_heap.c
 +++ drivers/gpu/ion/ion_carveout_heap.c
-@@ -381,13 +377,13 @@
+@@ -2,7 +2,7 @@
+  * drivers/gpu/ion/ion_carveout_heap.c
+  *
+  * Copyright (C) 2011 Google, Inc.
+- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
++ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+  *
+  * This software is licensed under the terms of the GNU General Public
+  * License version 2, as published by the Free Software Foundation, and
+@@ -23,6 +23,7 @@
+ #include <linux/mm.h>
+ #include <linux/scatterlist.h>
+ #include <linux/slab.h>
++#include <linux/vmalloc.h>
+ #include <linux/iommu.h>
+ #include <linux/seq_file.h>
+ #include "ion_priv.h"
+@@ -336,8 +377,11 @@
+ 			const char *client_name = "(null)";
+ 
+ 			if (last_end < data->addr) {
+-				seq_printf(s, "%16.s %14lx %14lx %14lu (%lx)\n",
+-					   "FREE", last_end, data->addr-1,
++				phys_addr_t da;
++
++				da = data->addr-1;
++				seq_printf(s, "%16.s %14pa %14pa %14lu (%lx)\n",
++					   "FREE", &last_end, &da,
+ 					   data->addr-last_end,
+ 					   data->addr-last_end);
+ 			}
+@@ -345,9 +389,9 @@
+ 			if (data->client_name)
+ 				client_name = data->client_name;
+ 
+-			seq_printf(s, "%16.s %14lx %14lx %14lu (%lx)\n",
+-				   client_name, data->addr,
+-				   data->addr_end,
++			seq_printf(s, "%16.s %14pa %14pa %14lu (%lx)\n",
++				   client_name, &data->addr,
++				   &data->addr_end,
+ 				   data->size, data->size);
+ 			last_end = data->addr_end+1;
+ 		}
+@@ -397,7 +441,7 @@
+ 		goto out1;
+ 	}
+ 
+-	sglist = kmalloc(sizeof(*sglist), GFP_KERNEL);
++	sglist = vmalloc(sizeof(*sglist));
+ 	if (!sglist)
+ 		goto out1;
+ 
+@@ -416,18 +460,19 @@
+ 
+ 	if (extra) {
+ 		unsigned long extra_iova_addr = data->iova_addr + buffer->size;
+-		ret = msm_iommu_map_extra(domain, extra_iova_addr, extra,
+-					  SZ_4K, prot);
++		unsigned long phys_addr = sg_phys(sglist);
++		ret = msm_iommu_map_extra(domain, extra_iova_addr, phys_addr,
++					extra, SZ_4K, prot);
  		if (ret)
  			goto out2;
  	}
--	vfree(sglist);
-+	kfree(sglist);
+-	kfree(sglist);
++	vfree(sglist);
  	return ret;
  
  out2:
  	iommu_unmap_range(domain, data->iova_addr, buffer->size);
  out1:
--	vfree(sglist);
-+	kfree(sglist);
+-	kfree(sglist);
++	vfree(sglist);
  	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
  				data->mapped_size);
  

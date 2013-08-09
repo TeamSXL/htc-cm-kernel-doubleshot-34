@@ -36,12 +36,13 @@ struct iommu_domain;
 #define IOMMU_FAULT_WRITE	0x1
 
 typedef int (*iommu_fault_handler_t)(struct iommu_domain *,
-				struct device *, unsigned long, int);
+			struct device *, unsigned long, int, void *);
 
 struct iommu_domain {
 	struct iommu_ops *ops;
 	void *priv;
 	iommu_fault_handler_t handler;
+	void *handler_token;
 };
 
 #define IOMMU_CAP_CACHE_COHERENCY	0x1
@@ -67,9 +68,17 @@ struct iommu_ops {
 	int (*domain_has_cap)(struct iommu_domain *domain,
 			      unsigned long cap);
 	phys_addr_t (*get_pt_base_addr)(struct iommu_domain *domain);
-	int (*device_group)(struct device *dev, unsigned int *groupid);
+	int (*add_device)(struct device *dev);
+	void (*remove_device)(struct device *dev);
 	unsigned long pgsize_bitmap;
 };
+
+#define IOMMU_GROUP_NOTIFY_ADD_DEVICE		1 /* Device added */
+#define IOMMU_GROUP_NOTIFY_DEL_DEVICE		2 /* Pre Device removed */
+#define IOMMU_GROUP_NOTIFY_BIND_DRIVER		3 /* Pre Driver bind */
+#define IOMMU_GROUP_NOTIFY_BOUND_DRIVER		4 /* Post Driver bind */
+#define IOMMU_GROUP_NOTIFY_UNBIND_DRIVER	5 /* Pre Driver unbind */
+#define IOMMU_GROUP_NOTIFY_UNBOUND_DRIVER	6 /* Post Driver unbind */
 
 extern int bus_set_iommu(struct bus_type *bus, struct iommu_ops *ops);
 extern bool iommu_present(struct bus_type *bus);
@@ -93,8 +102,31 @@ extern int iommu_domain_has_cap(struct iommu_domain *domain,
 				unsigned long cap);
 extern phys_addr_t iommu_get_pt_base_addr(struct iommu_domain *domain);
 extern void iommu_set_fault_handler(struct iommu_domain *domain,
-					iommu_fault_handler_t handler);
-extern int iommu_device_group(struct device *dev, unsigned int *groupid);
+			iommu_fault_handler_t handler, void *token);
+
+extern int iommu_attach_group(struct iommu_domain *domain,
+			      struct iommu_group *group);
+extern void iommu_detach_group(struct iommu_domain *domain,
+			       struct iommu_group *group);
+extern struct iommu_group *iommu_group_alloc(void);
+extern void *iommu_group_get_iommudata(struct iommu_group *group);
+extern void iommu_group_set_iommudata(struct iommu_group *group,
+				      void *iommu_data,
+				      void (*release)(void *iommu_data));
+extern int iommu_group_set_name(struct iommu_group *group, const char *name);
+extern int iommu_group_add_device(struct iommu_group *group,
+				  struct device *dev);
+extern void iommu_group_remove_device(struct device *dev);
+extern int iommu_group_for_each_dev(struct iommu_group *group, void *data,
+				    int (*fn)(struct device *, void *));
+extern struct iommu_group *iommu_group_get(struct device *dev);
+extern struct iommu_group *iommu_group_find(const char *name);
+extern void iommu_group_put(struct iommu_group *group);
+extern int iommu_group_register_notifier(struct iommu_group *group,
+					 struct notifier_block *nb);
+extern int iommu_group_unregister_notifier(struct iommu_group *group,
+					   struct notifier_block *nb);
+extern int iommu_group_id(struct iommu_group *group);
 
 static inline int report_iommu_fault(struct iommu_domain *domain,
 		struct device *dev, unsigned long iova, int flags)
@@ -102,7 +134,8 @@ static inline int report_iommu_fault(struct iommu_domain *domain,
 	int ret = -ENOSYS;
 
 	if (domain->handler)
-		ret = domain->handler(domain, dev, iova, flags);
+		ret = domain->handler(domain, dev, iova, flags,
+						domain->handler_token);
 
 	return ret;
 }
@@ -110,6 +143,7 @@ static inline int report_iommu_fault(struct iommu_domain *domain,
 #else 
 
 struct iommu_ops {};
+struct iommu_group {};
 
 static inline bool iommu_present(struct bus_type *bus)
 {

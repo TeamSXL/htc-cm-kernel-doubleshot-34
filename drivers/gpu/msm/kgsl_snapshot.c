@@ -100,7 +100,12 @@ static int snapshot_context_info(int id, void *ptr, void *data)
 {
 	struct kgsl_snapshot_linux_context *header = _ctxtptr;
 	struct kgsl_context *context = ptr;
-	struct kgsl_device *device = context->dev_priv->device;
+	struct kgsl_device *device;
+
+	if (context)
+		device = context->dev_priv->device;
+	else
+		device = (struct kgsl_device *)data;
 
 	header->id = id;
 
@@ -128,6 +133,9 @@ static int snapshot_os(struct kgsl_device *device,
 
 
 	idr_for_each(&device->context_idr, snapshot_context_count, &ctxtcount);
+
+	/* Increment ctxcount for the global memstore */
+	ctxtcount++;
 
 	size += ctxtcount * sizeof(struct kgsl_snapshot_linux_context);
 
@@ -256,7 +264,7 @@ static void kgsl_snapshot_put_object(struct kgsl_device *device,
 {
 	list_del(&obj->node);
 
-	obj->entry->flags &= ~KGSL_MEM_ENTRY_FROZEN;
+	obj->entry->memdesc.priv &= ~KGSL_MEMDESC_FROZEN;
 	kgsl_mem_entry_put(obj->entry);
 
 	kfree(obj);
@@ -339,10 +347,10 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
 	list_add(&obj->node, &device->snapshot_obj_list);
 
 
-	if (entry->flags & KGSL_MEM_ENTRY_FROZEN)
+	if (entry->memdesc.priv & KGSL_MEMDESC_FROZEN)
 		return 0;
 
-	entry->flags |= KGSL_MEM_ENTRY_FROZEN;
+	entry->memdesc.priv |= KGSL_MEMDESC_FROZEN;
 
 	return entry->memdesc.size;
 }

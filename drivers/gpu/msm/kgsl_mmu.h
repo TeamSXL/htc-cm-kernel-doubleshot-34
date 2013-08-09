@@ -102,6 +102,7 @@ struct kgsl_pagetable {
 	const struct kgsl_mmu_pt_ops *pt_ops;
 	unsigned int tlb_flags;
 	void *priv;
+	struct kgsl_mmu *mmu;
 };
 
 struct kgsl_mmu;
@@ -174,10 +175,9 @@ int kgsl_mmu_init(struct kgsl_device *device);
 int kgsl_mmu_start(struct kgsl_device *device);
 int kgsl_mmu_close(struct kgsl_device *device);
 int kgsl_mmu_map(struct kgsl_pagetable *pagetable,
-		 struct kgsl_memdesc *memdesc,
-		 unsigned int protflags);
+		 struct kgsl_memdesc *memdesc);
 int kgsl_mmu_map_global(struct kgsl_pagetable *pagetable,
-			struct kgsl_memdesc *memdesc, unsigned int protflags);
+			struct kgsl_memdesc *memdesc);
 int kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		    struct kgsl_memdesc *memdesc);
 unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr);

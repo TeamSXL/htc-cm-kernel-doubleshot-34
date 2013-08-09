@@ -56,7 +56,7 @@ struct kgsl_ptpool_chunk {
 	int dynamic;
 
 	void *data;
-	unsigned int phys;
+	phys_addr_t phys;
 
 	unsigned long *bitmap;
 	struct list_head list;

@@ -58,6 +58,22 @@ int msm_ion_unsecure_heap_2_0(int heap_id, enum cp_mem_usage usage)
 }
 EXPORT_SYMBOL(msm_ion_unsecure_heap_2_0);
 
+int msm_ion_secure_buffer(struct ion_client *client, struct ion_handle *handle,
+				enum cp_mem_usage usage,
+				int flags)
+{
+	return ion_secure_handle(client, handle, ION_CP_V2,
+				(void *)usage, flags);
+}
+EXPORT_SYMBOL(msm_ion_secure_buffer);
+
+int msm_ion_unsecure_buffer(struct ion_client *client,
+				struct ion_handle *handle)
+{
+	return ion_unsecure_handle(client, handle);
+}
+EXPORT_SYMBOL(msm_ion_unsecure_buffer);
+
 int msm_ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *vaddr, unsigned long len, unsigned int cmd)
 {
@@ -65,7 +81,7 @@ int msm_ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 }
 EXPORT_SYMBOL(msm_ion_do_cache_op);
 
-static unsigned long msm_ion_get_base(unsigned long size, int memory_type,
+static ion_phys_addr_t msm_ion_get_base(unsigned long size, int memory_type,
 				    unsigned int align)
 {
 	switch (memory_type) {
@@ -224,10 +240,10 @@ static void msm_ion_allocate(struct ion_platform_heap *heap)
 static int is_heap_overlapping(const struct ion_platform_heap *heap1,
 				const struct ion_platform_heap *heap2)
 {
-	unsigned long heap1_base = heap1->base;
-	unsigned long heap2_base = heap2->base;
-	unsigned long heap1_end = heap1->base + heap1->size - 1;
-	unsigned long heap2_end = heap2->base + heap2->size - 1;
+	ion_phys_addr_t heap1_base = heap1->base;
+	ion_phys_addr_t heap2_base = heap2->base;
+	ion_phys_addr_t heap1_end = heap1->base + heap1->size - 1;
+	ion_phys_addr_t heap2_end = heap2->base + heap2->size - 1;
 
 	if (heap1_base == heap2_base)
 		return 1;
@@ -345,6 +361,17 @@ static void __exit msm_ion_exit(void)
 {
 	platform_driver_unregister(&msm_ion_driver);
 }
+#else
+static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
+{
+	return NULL;
+}
+
+static void free_pdata(const struct ion_platform_data *pdata)
+{
+
+}
+#endif
 
 subsys_initcall(msm_ion_init);
 module_exit(msm_ion_exit);

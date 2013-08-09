@@ -12,6 +12,7 @@
  */
 
 #include <linux/slab.h>
+#include <linux/msm_kgsl.h>
 
 #include "kgsl.h"
 #include "kgsl_sharedmem.h"
@@ -117,7 +118,7 @@ void build_quad_vtxbuff(struct adreno_context *drawctxt,
 
 int adreno_drawctxt_create(struct kgsl_device *device,
 			struct kgsl_pagetable *pagetable,
-			struct kgsl_context *context, uint32_t flags)
+			struct kgsl_context *context, uint32_t *flags)
 {
 	struct adreno_context *drawctxt;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -182,10 +183,6 @@ void adreno_drawctxt_destroy(struct kgsl_device *device,
 
 	adreno_idle(device, KGSL_TIMEOUT_DEFAULT);
 
-	if (adreno_is_a20x(adreno_dev) && adreno_dev->drawctxt_active)
-		kgsl_setstate(&device->mmu, adreno_dev->drawctxt_active->id,
-			KGSL_MMUFLAGS_PTUPDATE);
-
 	kgsl_sharedmem_free(&drawctxt->gpustate);
 	kgsl_sharedmem_free(&drawctxt->context_gmem_shadow.gmemshadow);
 
@@ -228,8 +225,10 @@ void adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 		return;
 	}
 
-	KGSL_CTXT_INFO(device, "from %p to %p flags %d\n",
-			adreno_dev->drawctxt_active, drawctxt, flags);
+	KGSL_CTXT_INFO(device, "from %d to %d flags %d\n",
+		adreno_dev->drawctxt_active ?
+		adreno_dev->drawctxt_active->id : 0,
+		drawctxt ? drawctxt->id : 0, flags);
 
 	
 	adreno_dev->gpudev->ctxt_save(adreno_dev, adreno_dev->drawctxt_active);

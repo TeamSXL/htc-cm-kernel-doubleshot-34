@@ -59,7 +59,8 @@ struct kgsl_functable {
 	int (*idle) (struct kgsl_device *device, unsigned int timeout);
 	unsigned int (*isidle) (struct kgsl_device *device);
 	int (*suspend_context) (struct kgsl_device *device);
-	int (*start) (struct kgsl_device *device, unsigned int init_ram);
+	int (*init) (struct kgsl_device *device);
+	int (*start) (struct kgsl_device *device);
 	int (*stop) (struct kgsl_device *device);
 	int (*getproperty) (struct kgsl_device *device,
 		enum kgsl_property_type type, void *value,
@@ -88,7 +89,7 @@ struct kgsl_functable {
 			uint32_t flags);
 	int (*drawctxt_create) (struct kgsl_device *device,
 		struct kgsl_pagetable *pagetable, struct kgsl_context *context,
-		uint32_t flags);
+		uint32_t *flags);
 	void (*drawctxt_destroy) (struct kgsl_device *device,
 		struct kgsl_context *context);
 	long (*ioctl) (struct kgsl_device_private *dev_priv,
@@ -127,11 +128,27 @@ struct kgsl_device {
 	unsigned int ver_minor;
 	uint32_t flags;
 	enum kgsl_deviceid id;
+
+	/* Starting physical address for GPU registers */
 	unsigned long reg_phys;
+
+	/* Starting Kernel virtual address for GPU registers */
 	void *reg_virt;
+
+	/* Total memory size for all GPU registers */
 	unsigned int reg_len;
+
+	/* Kernel virtual address for GPU shader memory */
+	void *shader_mem_virt;
+
+	/* Starting physical address for GPU shader memory */
+	unsigned long shader_mem_phys;
+
+	/* GPU shader memory size */
+	unsigned int shader_mem_len;
 	struct kgsl_memdesc memstore;
 	const char *iomemname;
+	const char *shadermemname;
 
 	struct kgsl_mh mh;
 	struct kgsl_mmu mmu;
@@ -142,7 +159,6 @@ struct kgsl_device {
 	struct kgsl_pwrctrl pwrctrl;
 	int open_count;
 
-	struct atomic_notifier_head ts_notifier_list;
 	struct mutex mutex;
 	uint32_t state;
 	uint32_t requested_state;
@@ -176,7 +192,6 @@ struct kgsl_device {
 	int pwr_log;
 	struct kgsl_pwrscale pwrscale;
 	struct kobject pwrscale_kobj;
-	struct pm_qos_request pm_qos_req_dma;
 	struct work_struct ts_expired_ws;
 	struct list_head events;
 	s64 on_time;
@@ -226,6 +241,7 @@ struct kgsl_process_private {
 	pid_t pid;
 	spinlock_t mem_lock;
 	struct rb_root mem_rb;
+	struct idr mem_idr;
 	struct kgsl_pagetable *pagetable;
 	struct list_head list;
 	struct kobject kobj;
@@ -357,12 +373,6 @@ kgsl_find_context(struct kgsl_device_private *dev_priv, uint32_t id)
 
 int kgsl_check_timestamp(struct kgsl_device *device,
 		struct kgsl_context *context, unsigned int timestamp);
-
-int kgsl_register_ts_notifier(struct kgsl_device *device,
-			      struct notifier_block *nb);
-
-int kgsl_unregister_ts_notifier(struct kgsl_device *device,
-				struct notifier_block *nb);
 
 int kgsl_device_platform_probe(struct kgsl_device *device);
 

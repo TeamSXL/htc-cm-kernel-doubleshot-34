@@ -64,7 +64,8 @@ struct ion_buffer {
 	void *vaddr;
 	int dmap_cnt;
 	struct sg_table *sg_table;
-	int umap_cnt;
+	unsigned long *dirty;
+	struct list_head vmas;
 	unsigned int iommu_map_cnt;
 	struct rb_root iommu_maps;
 	int marked;
@@ -100,6 +101,9 @@ struct ion_heap_ops {
 			   const struct rb_root *mem_map);
 	int (*secure_heap)(struct ion_heap *heap, int version, void *data);
 	int (*unsecure_heap)(struct ion_heap *heap, int version, void *data);
+	int (*secure_buffer)(struct ion_buffer *buffer, int version,
+				void *data, int flags);
+	int (*unsecure_buffer)(struct ion_buffer *buffer, int force_unsecure);
 };
 
 struct ion_heap {
@@ -113,8 +117,8 @@ struct ion_heap {
 
 struct mem_map_data {
 	struct rb_node node;
-	unsigned long addr;
-	unsigned long addr_end;
+	ion_phys_addr_t addr;
+	ion_phys_addr_t addr_end;
 	unsigned long size;
 	const char *client_name;
 	const char *creator_name;

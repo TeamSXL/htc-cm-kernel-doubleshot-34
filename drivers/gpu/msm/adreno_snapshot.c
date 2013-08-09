@@ -311,7 +311,7 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 	int offset = type0_pkt_offset(*ptr);
 	int i;
 
-	for (i = 0; i < size; i++, offset++) {
+	for (i = 0; i < size - 1; i++, offset++) {
 
 		
 
@@ -540,12 +540,11 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 						ibaddr, ibsize))
 					memdesc = &device->mmu.setstate_memory;
 
-			if (ibaddr == ibbase || memdesc != NULL)
+			if (memdesc != NULL)
 				push_object(device, SNAPSHOT_OBJ_TYPE_IB,
 					ptbase, ibaddr, ibsize);
 			else
-				ib_add_gpu_object(device, ptbase, ibaddr,
-					ibsize);
+				parse_ib(device, ptbase, ibaddr, ibsize);
 		}
 
 		index = index + 1;

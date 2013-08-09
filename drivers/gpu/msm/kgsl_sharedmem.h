@@ -19,6 +19,7 @@
 #include "kgsl_mmu.h"
 #include <linux/slab.h>
 #include <linux/kmemleak.h>
+#include <linux/iommu.h>
 
 struct kgsl_device;
 struct kgsl_process_private;
