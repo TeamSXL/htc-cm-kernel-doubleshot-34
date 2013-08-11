@@ -230,6 +230,14 @@ config ARCH_MSM8974
 	select MSM_RPM_REGULATOR_SMD
 	select ARM_HAS_SG_CHAIN
 
+config MACH_DOUBLESHOT
+	depends on ARCH_MSM8X60
+	default n
+	bool "Doubleshot"
+	select FB_MSM_MIPI_DSI
+	help
+	  Support for the Doubleshot device.
+
 config MACH_ELITE
 	depends on ARCH_MSM8960
 	bool "Elite"
