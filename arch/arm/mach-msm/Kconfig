@@ -230,6 +230,59 @@ config ARCH_MSM8974
 	select MSM_RPM_REGULATOR_SMD
 	select ARM_HAS_SG_CHAIN
 
+config MACH_MONARUDO
+	depends on ARCH_APQ8064
+	bool "APQ8064 MONARUDO"
+	help
+	  Support for the HTC APQ8064 MONARUDO.
+
+config MACH_PYRAMID
+	depends on ARCH_MSM8X60
+	default n
+	bool "Pyramid"
+	select FB_MSM_MIPI_DSI
+	help
+	  Support for the Pyramid device.
+
+config MACH_RUBY
+	depends on ARCH_MSM8X60
+	default n
+	bool "Ruby"
+	select FB_MSM_MIPI_DSI
+	help
+	  Support for the Ruby device.
+
+config MACH_VILLEC2
+	depends on ARCH_MSM8X60
+	bool "VILLEC2"
+	help
+	  Support for the HTC VILLEC2 device.
+
+config MACH_SHOOTER
+	depends on ARCH_MSM8X60
+	default n
+	bool "shooter"
+	select FB_MSM_MIPI_DSI
+	help
+	  Support for the Shooter device.
+
+config MACH_SHOOTER_U
+        depends on ARCH_MSM8X60
+        default n
+        bool "Shooter_U"
+	select FB_MSM_MIPI_DSI
+        select SMP_PARALLEL_START
+        help
+          Support for the Shooter_U device.
+
+config MACH_DOUBLESHOT
+	depends on ARCH_MSM8X60
+	default n
+	bool "Doubleshot"
+	select FB_MSM_MIPI_DSI
+	help
+	  Support for the Doubleshot device.
+
 config MACH_ELITE
 	depends on ARCH_MSM8960
 	bool "Elite"
