@@ -110,6 +110,7 @@ struct ion_client;
 struct ion_buffer;
 
 #define ion_phys_addr_t unsigned long
+#define ion_virt_addr_t unsigned long
 
 struct ion_platform_heap {
 	enum ion_heap_type type;
@@ -226,6 +227,8 @@ int msm_ion_unsecure_heap_2_0(int heap_id, enum cp_mem_usage usage);
 int msm_ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *vaddr, unsigned long len, unsigned int cmd);
 
+int ion_iommu_heap_dump_size(void);
+
 #else
 static inline void ion_reserve(struct ion_platform_data *data)
 {
@@ -269,7 +272,7 @@ static inline struct sg_table *ion_sg_table(struct ion_client *client,
 }
 
 static inline void *ion_map_kernel(struct ion_client *client,
-	struct ion_handle *handle)
+	struct ion_handle *handle, unsigned long flags)
 {
 	return ERR_PTR(-ENODEV);
 }
@@ -300,12 +303,6 @@ static inline int ion_map_iommu(struct ion_client *client,
 			unsigned long *buffer_size,
 			unsigned long flags,
 			unsigned long iommu_flags)
-{
-	return -ENODEV;
-}
-
-static inline int ion_handle_get_size(struct ion_client *client,
-				struct ion_handle *handle, unsigned long *size)
 {
 	return -ENODEV;
 }
@@ -350,10 +347,6 @@ static inline int msm_ion_unsecure_heap_2_0(int heap_id,
 					enum cp_mem_usage usage)
 {
 	return -ENODEV;
-}
-
-static inline void ion_mark_dangling_buffers_locked(struct ion_device *dev)
-{
 }
 
 static inline int msm_ion_do_cache_op(struct ion_client *client,
@@ -417,14 +410,26 @@ struct ion_flag_data {
 
 #define ION_IOC_CUSTOM		_IOWR(ION_IOC_MAGIC, 6, struct ion_custom_data)
 
+#define ION_IOC_CLEAN_CACHES_OLD	_IOWR(ION_IOC_MAGIC, 7, \
+						struct ion_flush_data)
+#define ION_IOC_INV_CACHES_OLD	_IOWR(ION_IOC_MAGIC, 8, \
+						struct ion_flush_data)
+#define ION_IOC_CLEAN_INV_CACHES_OLD	_IOWR(ION_IOC_MAGIC, 9, \
+						struct ion_flush_data)
 
-#define ION_IOC_CLEAN_CACHES	_IOWR(ION_IOC_MAGIC, 7, \
-						struct ion_flush_data)
-#define ION_IOC_INV_CACHES	_IOWR(ION_IOC_MAGIC, 8, \
-						struct ion_flush_data)
-#define ION_IOC_CLEAN_INV_CACHES	_IOWR(ION_IOC_MAGIC, 9, \
-						struct ion_flush_data)
-
-#define ION_IOC_GET_FLAGS		_IOWR(ION_IOC_MAGIC, 10, \
+#define ION_IOC_GET_FLAGS_OLD		_IOWR(ION_IOC_MAGIC, 10, \
 						struct ion_flag_data)
+
+#define ION_IOC_MSM_MAGIC 'M'
+
+#define ION_IOC_CLEAN_CACHES	_IOWR(ION_IOC_MSM_MAGIC, 0, \
+						struct ion_flush_data)
+#define ION_IOC_INV_CACHES	_IOWR(ION_IOC_MSM_MAGIC, 1, \
+						struct ion_flush_data)
+#define ION_IOC_CLEAN_INV_CACHES	_IOWR(ION_IOC_MSM_MAGIC, 2, \
+						struct ion_flush_data)
+
+#define ION_IOC_GET_FLAGS		_IOWR(ION_IOC_MSM_MAGIC, 3, \
+						struct ion_flag_data)
+
 #endif 
