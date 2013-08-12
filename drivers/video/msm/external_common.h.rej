@@ -1,0 +1,15 @@
+--- drivers/video/msm/external_common.h
++++ drivers/video/msm/external_common.h
+@@ -276,10 +295,10 @@
+ 	uint32 mode);
+ void hdmi_common_init_panel_info(struct msm_panel_info *pinfo);
+ 
+-ssize_t video_3d_format_2string(uint32 format, char *buf, int size);
++ssize_t video_3d_format_2string(uint32 format, char *buf);
+ #endif
+ 
+ int external_common_state_create(struct platform_device *pdev);
+ void external_common_state_remove(void);
+ 
+-#endif 
++#endif /* __EXTERNAL_COMMON_H__ */

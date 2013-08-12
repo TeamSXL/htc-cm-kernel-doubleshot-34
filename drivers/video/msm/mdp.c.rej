@@ -1,0 +1,67 @@
+--- drivers/video/msm/mdp.c
++++ drivers/video/msm/mdp.c
+@@ -2236,8 +2203,8 @@
+ 			mfd->panel.type == LCDC_PANEL ||
+ 			mfd->panel.type == LVDS_PANEL)
+ 		mdp4_lcdc_off(pdev);
+-	else if (mfd->panel.type == WRITEBACK_PANEL)
+-		mdp4_overlay_writeback_off(pdev);
++	else if (mfd->panel.type == MDDI_PANEL)
++		mdp4_mddi_off(pdev);
+ 
+ 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+ 	ret = panel_next_off(pdev);
+@@ -2271,26 +2235,9 @@
+ 
+ 	pr_debug("%s:+\n", __func__);
+ 
+-	if (!(mfd->cont_splash_done)) {
+-		if (mfd->panel.type == MIPI_VIDEO_PANEL)
+-			mdp4_dsi_video_splash_done();
+-
+-		/* Clks are enabled in probe.
+-		Disabling clocks now */
+-		mdp_clk_ctrl(0);
+-		mfd->cont_splash_done = 1;
+-	}
+-
+-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+-
+-	ret = panel_next_on(pdev);
+-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+-
+-
+ 	if (mdp_rev >= MDP_REV_40) {
+ 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+ 		mdp_clk_ctrl(1);
+-		mdp_bus_scale_restore_request();
+ 		mdp4_hw_init();
+ 		outpdw(MDP_BASE + 0x0038, mdp4_display_intf);
+ 		if (mfd->panel.type == MIPI_CMD_PANEL) {
+@@ -2410,21 +2365,18 @@
+ 		mdp_bus_usecases[i].num_paths = 1;
+ 		mdp_bus_usecases[i].vectors = &mdp_bus_vectors[i];
+ 	}
+-
++	mdp_bus_scale_handle = msm_bus_scale_register_client(bus_pdata);
+ 	if (!mdp_bus_scale_handle) {
+-		mdp_bus_scale_handle = msm_bus_scale_register_client(bus_pdata);
+-		if (!mdp_bus_scale_handle) {
+-			pr_err("%s: not able to get bus scale!\n", __func__);
+-			return -ENOMEM;
+-		}
++		pr_err("%s: not able to get bus scale!\n", __func__);
++		return -ENOMEM;
+ 	}
+-
+ 	return 0;
+ }
+ 
+-static int bus_index = 1;
+ int mdp_bus_scale_update_request(u64 ab, u64 ib)
+ {
++	static int bus_index = 1;
++
+ 	if (mdp_bus_scale_handle < 1) {
+ 		pr_err("%s invalid bus handle\n", __func__);
+ 		return -EINVAL;

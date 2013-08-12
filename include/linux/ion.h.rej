@@ -1,0 +1,74 @@
+--- include/linux/ion.h
++++ include/linux/ion.h
+@@ -2,7 +2,7 @@
+  * include/linux/ion.h
+  *
+  * Copyright (C) 2011 Google, Inc.
+- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
++ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+  *
+  * This software is licensed under the terms of the GNU General Public
+  * License version 2, as published by the Free Software Foundation, and
+@@ -33,14 +33,12 @@
+  * @ION_HEAP_TYPE_CP:	 memory allocated from a prereserved
+  *				carveout heap, allocations are physically
+  *				contiguous. Used for content protection.
+- * @ION_HEAP_TYPE_DMA:          memory allocated via DMA API
+  * @ION_HEAP_END:		helper for iterating over heaps
+  */
+ enum ion_heap_type {
+ 	ION_HEAP_TYPE_SYSTEM,
+ 	ION_HEAP_TYPE_SYSTEM_CONTIG,
+ 	ION_HEAP_TYPE_CARVEOUT,
+-	ION_HEAP_TYPE_DMA,
+ 	ION_HEAP_TYPE_CUSTOM, /* must be last so device specific heaps always
+ 				 are at the end of this enum */
+ 	ION_NUM_HEAPS,
+@@ -49,7 +47,6 @@
+ #define ION_HEAP_SYSTEM_MASK		(1 << ION_HEAP_TYPE_SYSTEM)
+ #define ION_HEAP_SYSTEM_CONTIG_MASK	(1 << ION_HEAP_TYPE_SYSTEM_CONTIG)
+ #define ION_HEAP_CARVEOUT_MASK		(1 << ION_HEAP_TYPE_CARVEOUT)
+-#define ION_HEAP_TYPE_DMA_MASK         (1 << ION_HEAP_TYPE_DMA)
+ 
+ /**
+  * heap flags - the lower 16 bits are used by core ion, the upper 16
+@@ -59,6 +56,9 @@
+ 					   cached, ion will do cache
+ 					   maintenance when the buffer is
+ 					   mapped for dma */
++#define ION_FLAG_CACHED_NEEDS_SYNC 2	/* mappings of this buffer will created
++					   at mmap time, if this is set
++					   caches must be managed manually */
+ 
+ #ifdef __KERNEL__
+ #include <linux/err.h>
+@@ -226,11 +225,9 @@
+  * ion_map_kernel - create mapping for the given handle
+  * @client:	the client
+  * @handle:	handle to map
+- * @flags:	flags for this mapping
+  *
+  * Map the given handle into the kernel and return a kernel address that
+- * can be used to access this address. If no flags are specified, this
+- * will return a non-secure uncached mapping.
++ * can be used to access this address.
+  */
+ void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle);
+ 
+@@ -608,6 +613,16 @@
+ #define ION_IOC_IMPORT		_IOWR(ION_IOC_MAGIC, 5, struct ion_fd_data)
+ 
+ /**
++ * DOC: ION_IOC_SYNC - syncs a shared file descriptors to memory
++ *
++ * Deprecated in favor of using the dma_buf api's correctly (syncing
++ * will happend automatically when the buffer is mapped to a device).
++ * If necessary should be used after touching a cached buffer from the cpu,
++ * this will make the buffer in memory coherent.
++ */
++#define ION_IOC_SYNC		_IOWR(ION_IOC_MAGIC, 7, struct ion_fd_data)
++
++/**
+  * DOC: ION_IOC_CUSTOM - call architecture specific ion ioctl
+  *
+  * Takes the argument of the architecture specific ioctl to call and

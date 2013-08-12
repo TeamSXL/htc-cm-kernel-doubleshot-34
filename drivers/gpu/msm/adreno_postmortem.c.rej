@@ -1,0 +1,35 @@
+--- drivers/gpu/msm/adreno_postmortem.c
++++ drivers/gpu/msm/adreno_postmortem.c
+@@ -1,4 +1,4 @@
+-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
++/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 and
+@@ -740,6 +777,7 @@
+ 	mb();
+ 
+ 	if (device->pm_dump_enable) {
++
+ 		if (adreno_is_a2xx(adreno_dev))
+ 			adreno_dump_a2xx(device);
+ 		else if (adreno_is_a3xx(adreno_dev))
+@@ -765,7 +803,7 @@
+ 	if (!device->pm_dump_enable) {
+ 
+ 		KGSL_LOG_DUMP(device,
+-			"RBBM STATUS %08X | IB1:%08X/%08X | IB2: %08X/%08X"
++			"STATUS %08X | IB1:%08X/%08X | IB2: %08X/%08X"
+ 			" | RPTR: %04X | WPTR: %04X\n",
+ 			rbbm_status,  cp_ib1_base, cp_ib1_bufsz, cp_ib2_base,
+ 			cp_ib2_bufsz, cp_rb_rptr, cp_rb_wptr);
+@@ -927,7 +965,8 @@
+ 			adreno_dump_regs(device, a3xx_registers,
+ 					a3xx_registers_count);
+ 
+-			if (adreno_is_a330(adreno_dev))
++			if (adreno_is_a330(adreno_dev) ||
++				adreno_is_a305b(adreno_dev))
+ 				adreno_dump_regs(device, a330_registers,
+ 					a330_registers_count);
+ 		}

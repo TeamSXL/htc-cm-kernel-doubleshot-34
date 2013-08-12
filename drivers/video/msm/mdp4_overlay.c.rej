@@ -1,0 +1,130 @@
+--- drivers/video/msm/mdp4_overlay.c
++++ drivers/video/msm/mdp4_overlay.c
+@@ -3030,7 +3175,8 @@
+ 		}
+ 
+ 		if ((mfd->panel_info.pdest == DISPLAY_1 &&
+-		     perf_req->use_ov_blt[0] && !perf_cur->use_ov_blt[0])) {
++		     perf_req->use_ov_blt[0] && !perf_cur->use_ov_blt[0]) ||
++		    dbg_force_ov0_blt) {
+ 			if (mfd->panel_info.type == LCDC_PANEL ||
+ 			    mfd->panel_info.type == LVDS_PANEL)
+ 				mdp4_lcdc_overlay_blt_start(mfd);
+@@ -3086,9 +3245,9 @@
+ 			perf_cur->mdp_ab_bw = perf_req->mdp_ab_bw;
+ 			perf_cur->mdp_ib_bw = perf_req->mdp_ib_bw;
+ 		}
+-
+ 		if ((mfd->panel_info.pdest == DISPLAY_1 &&
+-		     !perf_req->use_ov_blt[0] && perf_cur->use_ov_blt[0])) {
++		     !perf_req->use_ov_blt[0] && perf_cur->use_ov_blt[0]) ||
++		    dbg_force_ov0_blt) {
+ 			if (mfd->panel_info.type == LCDC_PANEL ||
+ 			    mfd->panel_info.type == LVDS_PANEL)
+ 				mdp4_lcdc_overlay_blt_stop(mfd);
+@@ -3290,9 +3452,6 @@
+ 								__func__);
+ 	}
+ 
+-	if (hdmi_prim_display)
+-		fill_black_screen(FALSE, pipe->pipe_num, pipe->mixer_num);
+-
+ 	mdp4_overlay_mdp_pipe_req(pipe, mfd);
+ 
+ 	mutex_unlock(&mfd->dma->ov_mutex);
+@@ -3329,7 +3492,6 @@
+ {
+ 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+ 	struct mdp4_overlay_pipe *pipe;
+-	int i, mixer;
+ 
+ 	if (mfd == NULL)
+ 		return -ENODEV;
+@@ -3357,33 +3517,23 @@
+ 	else {
+ 		/* mixer 0 */
+ 		ctrl->mixer0_played = 0;
+-		if (ctrl->panel_mode & MDP4_PANEL_MDDI) {
+-			if (mfd->panel_power_on)
+-				mdp4_mddi_blt_dmap_busy_wait(mfd);
+-		}
++
+ 	}
+ 
+ 	mdp4_overlay_reg_flush(pipe, 1);
+ 	mdp4_mixer_stage_down(pipe, 0);
+ 
+-	if (pipe->blt_forced) {
+-		if (pipe->flags & MDP_SECURE_OVERLAY_SESSION) {
+-			pipe->blt_forced = 0;
+-			pipe->req_clk = 0;
+-			mdp4_overlay_mdp_perf_req(mfd, ctrl->plist);
+-		}
+-	}
+-
+ 	if (pipe->mixer_num == MDP4_MIXER0) {
+-		if (ctrl->panel_mode & MDP4_PANEL_MDDI) {
+-			if (mfd->panel_power_on)
+-				mdp4_mddi_overlay_restore();
+-		}
++
+ 	} else {	/* mixer1, DTV, ATV */
+ 		if (ctrl->panel_mode & MDP4_PANEL_DTV) {
+-			if (hdmi_prim_display)
+-				fill_black_screen(TRUE, pipe->pipe_num,
+-					pipe->mixer_num);
++			if (hdmi_prim_display) {
++				struct mdp4_overlay_pipe *pp;
++				pp = &ctrl->sf_plist[pipe->mixer_num]
++					[pipe->pipe_ndx - 1];
++				*pp = *pipe; /* clone it */
++				pp->solid_fill = 1;
++			}
+ 			mdp4_overlay_dtv_unset(mfd, pipe);
+ 		}
+ 	}
+@@ -3392,37 +3542,24 @@
+ 
+ 	mdp4_overlay_pipe_free(pipe);
+ 
+-	/* mdp4_mixer_stage_down will remove pipe for mixer 1 and 2*/
+-	if (mixer > MDP4_MIXER0 && !hdmi_prim_display) {
+-		for (i = MDP4_MIXER_STAGE_BASE; i < MDP4_MIXER_STAGE_MAX; i++) {
+-			pipe = ctrl->stage[mixer][i];
+-			if (pipe && pipe->pipe_type != OVERLAY_TYPE_BF)
+-				break;
+-		}
+-		/* only BF pipe is connected */
+-		if (i == MDP4_MIXER_STAGE_MAX) {
+-			/* make sure the operation has finished.*/
+-			msleep(20);
+-			msm_fb_release_timeline(mfd);
+-		}
+-	}
+-
+ 	mutex_unlock(&mfd->dma->ov_mutex);
+ 
+ 	return 0;
+ }
+ 
+-int mdp4_overlay_wait4vsync(struct fb_info *info)
++int mdp4_overlay_wait4vsync(struct fb_info *info, long long *vtime)
+ {
+ 	if (!hdmi_prim_display && info->node == 0) {
+ 		if (ctrl->panel_mode & MDP4_PANEL_DSI_VIDEO)
+-			mdp4_dsi_video_wait4vsync(0);
++			mdp4_dsi_video_wait4vsync(0, vtime);
+ 		else if (ctrl->panel_mode & MDP4_PANEL_DSI_CMD)
+-			mdp4_dsi_cmd_wait4vsync(0);
++			mdp4_dsi_cmd_wait4vsync(0, vtime);
+ 		else if (ctrl->panel_mode & MDP4_PANEL_LCDC)
+-			mdp4_lcdc_wait4vsync(0);
++			mdp4_lcdc_wait4vsync(0, vtime);
++		else if (ctrl->panel_mode & MDP4_PANEL_MDDI)
++			mdp4_mddi_wait4vsync(0, vtime);
+ 	} else if (hdmi_prim_display || info->node == 1) {
+-		mdp4_dtv_wait4vsync(0);
++		mdp4_dtv_wait4vsync(0, vtime);
+ 	}
+ 
+ 	return 0;

@@ -1,0 +1,23 @@
+--- drivers/video/msm/msm_fb_panel.h
++++ drivers/video/msm/msm_fb_panel.h
+@@ -204,8 +209,18 @@
+ 	int (*power_ctrl) (boolean enable);
+ 	struct platform_device *next;
+ 	int (*clk_func) (int enable);
+-	int (*fps_level_change) (struct platform_device *pdev,
+-					u32 fps_level);
++};
++
++enum {
++	MDP4_OVERLAY_BLT_SWITCH_TG_OFF,
++	MDP4_OVERLAY_BLT_SWITCH_TG_ON,
++	MDP4_OVERLAY_BLT_SWITCH_POLL
++};
++
++enum {
++	MDP4_OVERLAY_MODE_BLT_CTRL,
++	MDP4_OVERLAY_MODE_BLT_ALWAYS_ON,
++	MDP4_OVERLAY_MODE_BLT_ALWAYS_OFF
+ };
+ 
+ /*===========================================================================

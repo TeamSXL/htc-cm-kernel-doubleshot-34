@@ -1,0 +1,43 @@
+--- drivers/gpu/msm/kgsl_snapshot.c
++++ drivers/gpu/msm/kgsl_snapshot.c
+@@ -1,4 +1,4 @@
+-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
++/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 and
+@@ -177,8 +185,9 @@
+ 	header->grpclk = kgsl_get_clkrate(pwr->grp_clks[0]);
+ 	header->busclk = kgsl_get_clkrate(pwr->ebi1_clk);
+ 
+-	/* Future proof for per-context timestamps */
+-	header->current_context = -1;
++	/* Save the last active context */
++	kgsl_sharedmem_readl(&device->memstore, &header->current_context,
++		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context));
+ 
+ 	/* Get the current PT base */
+ 	header->ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
+@@ -193,8 +202,10 @@
+ 
+ 	header->ctxtcount = ctxtcount;
+ 
+-	/* append information for each context */
+ 	_ctxtptr = snapshot + sizeof(*header);
++	/* append information for the global context */
++	snapshot_context_info(KGSL_MEMSTORE_GLOBAL, NULL, device);
++	/* append information for each context */
+ 	idr_for_each(&device->context_idr, snapshot_context_info, NULL);
+ 
+ 	/* Return the size of the data segment */
+@@ -383,8 +394,8 @@
+ 	/* If the buffer is already on the list, skip it */
+ 	list_for_each_entry(obj, &device->snapshot_obj_list, node) {
+ 		if (obj->gpuaddr == gpuaddr && obj->ptbase == ptbase) {
+-			/* If the size is different, use the new size */
+-			if (obj->size != size)
++			/* If the size is different, use the bigger size */
++			if (obj->size < size)
+ 				obj->size = size;
+ 
+ 			return 0;

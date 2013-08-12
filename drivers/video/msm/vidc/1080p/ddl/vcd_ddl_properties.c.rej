@@ -1,0 +1,28 @@
+--- drivers/video/msm/vidc/1080p/ddl/vcd_ddl_properties.c
++++ drivers/video/msm/vidc/1080p/ddl/vcd_ddl_properties.c
+@@ -1202,8 +1327,24 @@
+ 		}
+ 		break;
+ 	}
++	case VCD_I_H263_PLUSPTYPE:
++	{
++		struct vcd_property_plusptype *plusptype =
++			(struct vcd_property_plusptype *)property_value;
++
++		if ((sizeof(struct vcd_property_plusptype) ==
++			property_hdr->sz) && encoder->codec.codec ==
++			VCD_CODEC_H263) {
++			encoder->plusptype_enable = plusptype->plusptype_enable;
++			DDL_MSG_LOW("\nencoder->plusptype_enable = %u",
++						encoder->plusptype_enable);
++			vcd_status = VCD_S_SUCCESS;
++		}
++		break;
++	}
+ 	default:
+-		DDL_MSG_ERROR("INVALID ID %d\n", (int)property_hdr->prop_id);
++		DDL_MSG_ERROR("%s: unknown prop_id = 0x%x", __func__,
++			property_hdr->prop_id);
+ 		vcd_status = VCD_ERR_ILLEGAL_OP;
+ 	break;
+ 	}
