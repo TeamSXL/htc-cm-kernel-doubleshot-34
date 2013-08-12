@@ -50,7 +50,7 @@
 #include <linux/curcial_oj.h>
 
 #include <linux/input/cy8c_ts.h>
-#include <linux/cyttsp.h>
+#include <linux/input/cyttsp.h>
 #include <linux/i2c/isa1200.h>
 #include <linux/dma-mapping.h>
 #include <linux/i2c/bq27520.h>
