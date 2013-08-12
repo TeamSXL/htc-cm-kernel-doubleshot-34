@@ -359,6 +359,17 @@ obj-$(CONFIG_MACH_VILLEC2) += board-villec2-mmc.o board-villec2-wifi.o htc_wifi_
 obj-$(CONFIG_MACH_VILLEC2) += htc_util.o
 obj-$(CONFIG_MACH_VILLEC2) += board-villec2-audio.o
 
+# msm8x60 devices:
+obj-$(CONFIG_MACH_DOUBLESHOT) += board-doubleshot.o
+obj-$(CONFIG_MACH_DOUBLESHOT) += board-doubleshot-keypad.o
+obj-$(CONFIG_MACH_DOUBLESHOT) += board-doubleshot-audio.o
+obj-$(CONFIG_MACH_DOUBLESHOT) += board-doubleshot-microp.o
+obj-$(CONFIG_MACH_DOUBLESHOT) += htc_bdaddress.o board-doubleshot-rfkill.o
+obj-$(CONFIG_MACH_DOUBLESHOT) += board-doubleshot-mmc.o board-doubleshot-wifi.o
+#ifeq ($(CONFIG_ION_MSM),y)
+#obj-$(CONFIG_MACH_DOUBLESHOT) += board-doubleshot-ion.o
+#endif
+
 CFLAGS_msm_vibrator.o += -Idrivers/staging/android
 CFLAGS_board-9615.o += -Idrivers/usb/gadget
 
