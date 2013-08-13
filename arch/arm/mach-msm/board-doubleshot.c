@@ -2144,8 +2144,8 @@ static struct android_pmem_platform_data android_pmem_smipool_pdata = {
 	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
 	.cached = 1,
 	.memory_type = MEMTYPE_SMI,
-	.request_region = pmem_request_smi_region,
-	.release_region = pmem_release_smi_region,
+	.request_region = (void *)pmem_request_smi_region,
+	.release_region = (void *)pmem_release_smi_region,
 	.setup_region = pmem_setup_smi_region,
 	.map_on_demand = 1,
 };
