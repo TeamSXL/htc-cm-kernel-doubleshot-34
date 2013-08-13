@@ -250,6 +250,8 @@ struct platform_device msm8x60_device_acpuclk = {
 	.id		= -1,
 };
 
+struct platform_device msm_camera_sensor_webcam;
+
 #ifdef CONFIG_MSM_DSPS
 #define GSBI12_DEV (&msm_dsps_device.dev)
 #else
