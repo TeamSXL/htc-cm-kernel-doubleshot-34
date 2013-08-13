@@ -179,7 +179,7 @@ int set_three_phase_freq_badass(int cpufreq);
 int __init dot_init_panel(struct resource *res, size_t size);
 #ifdef CONFIG_ION_MSM
 int __init doubleshot_ion_reserve_memory(struct memtype_reserve *table);
-int __init doubleshot_ion_init();
+int __init doubleshot_ion_init(void);
 #endif
 
 enum {
