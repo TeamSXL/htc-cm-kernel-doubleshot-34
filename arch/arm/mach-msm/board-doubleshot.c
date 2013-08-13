@@ -128,7 +128,7 @@
 #include <mach/cpuidle.h>
 #include "pm.h"
 #include "pm-boot.h"
-#include "mpm.h"
+#include <mach/mpm.h>
 #include "spm.h"
 #include "rpm_log.h"
 #include "timer.h"
