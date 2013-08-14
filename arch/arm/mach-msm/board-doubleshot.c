@@ -3438,7 +3438,7 @@ static struct platform_device *doubleshot_devices[] __initdata = {
 #endif
 
 //	&msm_tsens_device,
-	&msm_rpm_device,
+	&msm8660_rpm_device,
 	&cable_detect_device,
 #ifdef CONFIG_BT
 	&doubleshot_rfkill,
