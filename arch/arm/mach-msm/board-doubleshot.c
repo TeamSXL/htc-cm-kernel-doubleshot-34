@@ -3480,7 +3480,8 @@ static struct memtype_reserve msm8x60_reserve_table[] __initdata = {
 #ifdef CONFIG_ANDROID_PMEM
 static void __init size_pmem_device(struct android_pmem_platform_data *pdata, unsigned long start, unsigned long size)
 {
-	pdata->start = start;
+	
+	
 	pdata->size = size;
 	pr_info("%s: allocating %lu bytes at 0x%p (0x%lx physical) for %s\n",
 		__func__, size, __va(start), start, pdata->name);
