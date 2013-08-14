@@ -2190,6 +2190,10 @@ static int doubleshot_ts_atmel_power(int on)
 	return 0;
 }
 
+static struct atmel_cfg ts_atmel_cable_cfg_data[] = {
+	{.objid = 35,    .byte = 30,    .value = 8,	.orival = 16},
+};
+
 struct atmel_i2c_platform_data doubleshot_ts_atmel_data[] = {
 	{
 		.version = 0x020,
@@ -2217,7 +2221,8 @@ struct atmel_i2c_platform_data doubleshot_ts_atmel_data[] = {
 		.config_T25 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T28 = {0, 0, 3, 8, 16, 60},
 		.object_crc = {0xD3, 0xEC, 0x77},
-		.cable_config = {35, 30, 8, 16},
+		.cable_config = {	.cnt = ARRAY_SIZE(ts_atmel_cable_cfg_data),
+					.cfg = ts_atmel_cable_cfg_data, },
 		.wlc_config = {50, 15, 25, 35, 30, 8, 16},
 		.wlc_freq = {20, 30, 40, 255, 255},
 		.GCAF_level = {20, 24, 28, 40, 63},
@@ -2248,7 +2253,8 @@ struct atmel_i2c_platform_data doubleshot_ts_atmel_data[] = {
 		.config_T25 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T27 = {0, 0, 0, 0, 0, 0, 0},
 		.config_T28 = {0, 0, 3, 8, 16, 60},
-		.cable_config = {35, 30, 8, 16},
+		.cable_config = {	.cnt = ARRAY_SIZE(ts_atmel_cable_cfg_data),
+					.cfg = ts_atmel_cable_cfg_data, },
 		.GCAF_level = {20, 24, 28, 40, 63},
 	},
 };
