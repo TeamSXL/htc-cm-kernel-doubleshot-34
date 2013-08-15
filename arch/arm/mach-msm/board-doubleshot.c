@@ -6459,9 +6459,9 @@ static struct msm_rpm_platform_data msm_rpm_data = {
 
 	.irq_ack = RPM_SCSS_CPU0_GP_HIGH_IRQ,
 	.irq_err = RPM_SCSS_CPU0_GP_LOW_IRQ,
-	.irq_vmpm = RPM_SCSS_CPU0_GP_MEDIUM_IRQ,
-	.msm_apps_ipc_rpm_reg = MSM_GCC_BASE + 0x008,
-	.msm_apps_ipc_rpm_val = 4,
+	.irq_wakeup = RPM_SCSS_CPU0_GP_MEDIUM_IRQ,
+	.ipc_rpm_reg = MSM_GCC_BASE + 0x008,
+	.ipc_rpm_val = 4,
 };
 #endif
 
@@ -6485,7 +6485,7 @@ struct msm_board_data {
 };
 
 static struct msm_board_data doubleshot_board_data __initdata = {
-	.gpiomux_cfgs = msm8x60_pyramid_gpiomux_cfgs,
+	.gpiomux_cfgs = msm8x60_doubleshot_gpiomux_cfgs,
 };
 
 void doubleshot_add_usb_devices(void)
@@ -6564,8 +6564,7 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 #ifdef CONFIG_MSM_RPM
 	BUG_ON(msm_rpm_init(&msm_rpm_data));
 #endif
-	BUG_ON(msm_rpmrs_levels_init(msm_rpmrs_levels,
-				ARRAY_SIZE(msm_rpmrs_levels)));
+	BUG_ON(msm_rpmrs_levels_init(msm_rpmrs_levels, ARRAY_SIZE(msm_rpmrs_levels)));
 
 	/*
 	* Set low power mode of rpm resources:
