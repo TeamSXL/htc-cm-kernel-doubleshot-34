@@ -3507,10 +3507,10 @@ static void __init reserve_memory_for(struct android_pmem_platform_data *p)
 	/* If we have set a pre-defined PMEM start base,
 	 * no need to reserve it in system again.
 	 */
-	if (p->start == 0) {
+//	if (p->start == 0) {
 		pr_info("%s: reserving %lx bytes in memory pool for %s.\n", __func__, p->size, p->name);
 		msm8x60_reserve_table[p->memory_type].size += p->size;
-	}
+//	}
 }
 #endif
 
