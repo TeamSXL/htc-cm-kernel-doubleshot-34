@@ -4712,8 +4712,9 @@ static struct spi_board_info msm_spi_board_info[] __initdata = {
 
 #define PM8901_GPIO_INT           91
 
-static struct pm8xxx_gpio_platform_data pm8058_mpp_data = {
+static struct pm8901_gpio_platform_data pm8901_mpp_data = {
 	.gpio_base	= PM8901_GPIO_PM_TO_SYS(0),
+	.irq_base	= PM8901_MPP_IRQ(PM8901_IRQ_BASE, 0),
 };
 
 static struct resource pm8901_temp_alarm[] = {
