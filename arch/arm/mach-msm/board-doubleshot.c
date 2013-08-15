@@ -6645,9 +6645,9 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	platform_add_devices(early_regulators, ARRAY_SIZE(early_regulators));
 
 	/*added by htc for clock debugging*/
-	clk_ignor_list_add("msm_serial_hsl.0", "core_clk");
-	clk_ignor_list_add("msm_sdcc.4", "core_clk");
-	clk_ignor_list_add("msm_sdcc.4", "iface_clk");
+	clk_ignor_list_add("msm_serial_hsl.0", "core_clk", &msm8x60_clock_init_data);
+	clk_ignor_list_add("msm_sdcc.4", "core_clk", &msm8x60_clock_init_data);
+	clk_ignor_list_add("msm_sdcc.4", "iface_clk", &msm8x60_clock_init_data);
 
 	msm_clock_init(&msm8x60_clock_init_data);
 
@@ -6657,7 +6657,7 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	msm8x60_init_buses();
 	platform_add_devices(early_devices, ARRAY_SIZE(early_devices));
 	/* CPU frequency control is not supported on simulated targets. */
-	acpuclk_init(&acpuclk_8x60_soc_data);
+	acpuclk_init(&acpuclk_8x60_data);
 
 #ifdef CONFIG_PERFLOCK
 	perflock_init(&doubleshot_perflock_data);

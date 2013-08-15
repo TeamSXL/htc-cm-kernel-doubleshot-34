@@ -38,6 +38,7 @@ struct acpuclk_data {
 	uint32_t switch_time_us;
 	unsigned long power_collapse_khz;
 	unsigned long wait_for_irq_khz;
+	int (*init)(struct acpuclk_data *);
 };
 
 unsigned long acpuclk_get_rate(int cpu);
@@ -47,6 +48,8 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason);
 uint32_t acpuclk_get_switch_time(void);
 
 unsigned long acpuclk_power_collapse(void);
+
+int acpuclk_init(struct acpuclk_data *);
 
 unsigned long acpuclk_wait_for_irq(void);
 
