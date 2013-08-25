@@ -32,6 +32,10 @@ struct ashmem_pin {
 	__u32 len;	/* length forward from offset, in bytes, page-aligned */
 };
 
+int get_ashmem_file(int fd, struct file **filp, struct file **vm_file,
+			unsigned long *len);
+void put_ashmem_file(struct file *file);
+
 #define __ASHMEMIOC		0x77
 
 #define ASHMEM_SET_NAME		_IOW(__ASHMEMIOC, 1, char[ASHMEM_NAME_LEN])
