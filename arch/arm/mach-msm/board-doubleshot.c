@@ -4515,7 +4515,7 @@ static void __init pyramid_fixup(struct tag *tags,
 	mi->bank[0].size = SIZE_ADDR1;
 }
 
-MACHINE_START(PYRAMID, "pyramid")
+MACHINE_START(DOUBLESHOT, "doubleshot")
 	.fixup = pyramid_fixup,
 	.map_io = pyramid_map_io,
 	.reserve = pyramid_reserve,
