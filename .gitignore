@@ -9,6 +9,9 @@
 #
 # Normal rules
 #
+zImage
+*.ko
+*~
 .*
 *.o
 *.o.*
