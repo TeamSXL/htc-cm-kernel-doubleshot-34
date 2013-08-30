@@ -1,1 +1,2 @@
 header-y += spidev.h
+header-y += spi_aic3254.h
