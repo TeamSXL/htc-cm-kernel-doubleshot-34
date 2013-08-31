@@ -2307,6 +2307,40 @@ CONFIG_ISDBT_NMI=y
 #
 CONFIG_MSM_CAMERA=y
 # CONFIG_MSM_CAMERA_DEBUG is not set
+CONFIG_DS_MSM_CAMERA=y
+# CONFIG_DS_MSM_CAMERA_DEBUG is not set
+
+#
+# Qualcomm MSM Camera And Video
+#
+CONFIG_DS_MSM_CAMERA_V4L2=y
+CONFIG_DS_MSM_CAMERA_LEGACY=y
+# CONFIG_DS_MSM_CAMERA_7X30 is not set
+# CONFIG_DS_MSM_CAMERA_8X60 is not set
+# CONFIG_DS_720P_CAMERA is not set
+# CONFIG_DS_CAMERA_ZSL is not set
+# CONFIG_DS_FLASH_BACKLIGHT_OFF is not set
+
+#
+# Camera Sensor Selection
+#
+# CONFIG_DS_MT9T013 is not set
+# CONFIG_DS_MT9D112 is not set
+# CONFIG_DS_IMX105 is not set
+# CONFIG_DS_MT9P012 is not set
+# CONFIG_DS_S5K3E2FX is not set
+# CONFIG_DS_S5K4E1GX is not set
+# CONFIG_DS_S5K4E5YX is not set
+# CONFIG_DS_S5K6AAFX is not set
+# CONFIG_DS_OV8810 is not set
+# CONFIG_DS_OV8830 is not set
+# CONFIG_DS_OV9665 is not set
+# CONFIG_DS_S5K3H1GX is not set
+# CONFIG_DS_S5K3H2YX is not set
+# CONFIG_DS_MSM_GEMINI is not set
+CONFIG_DS_MSM_VPE=y
+# CONFIG_DS_MT9V113 is not set
+# CONFIG_DS_SP3D is not set
 CONFIG_MSM_CAMERA_V4L2=y
 
 #
