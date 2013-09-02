@@ -36,6 +36,7 @@
 #include <linux/i2c/isa1200.h>
 #include <linux/dma-mapping.h>
 #include <linux/mpu.h>
+#include "sysinfo-8x60.h"
 
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
@@ -4433,8 +4434,17 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 				&doubleshot_properties_attr_group);
 
 	doubleshot_init_keypad();
-	headset_device_register();
 	doubleshot_wifi_init();
+	headset_device_register();
+
+	sysinfo_proc_init();
+	properties_kobj = kobject_create_and_add("board_properties", NULL);
+	if (properties_kobj)
+		ret = sysfs_create_group(properties_kobj,
+				&doubleshot_properties_attr_group);
+
+
+	//msm_mpm_set_irq_ignore_list(irq_ignore_tbl, irq_num_ignore_tbl);
 
 	if (get_kernel_flag() & KERNEL_FLAG_PM_MONITOR) {
 		htc_monitor_init();
@@ -4445,6 +4455,7 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 static void __init doubleshot_init(void)
 {
 	msm8x60_init(&doubleshot_board_data);
+	printk(KERN_INFO "%s revision=%d engineerid=%d\n", __func__, system_rev, engineerid);
 }
 
 static void __init doubleshot_charm_init_early(void)
@@ -4457,6 +4468,7 @@ int __init parse_tag_memsize(const struct tag *tags);
 static void __init doubleshot_fixup(struct tag *tags,
 		char **cmdline, struct meminfo *mi)
 {
+	engineerid = parse_tag_engineerid(tags);
 	mi->nr_banks = 1;
 	mi->bank[0].start = PHY_BASE_ADDR1;
 	mi->bank[0].size = SIZE_ADDR1;
@@ -4467,9 +4479,9 @@ MACHINE_START(DOUBLESHOT, "doubleshot")
 	.map_io = doubleshot_map_io,
 	.reserve = doubleshot_reserve,
 	.init_irq = msm8x60_init_irq,
-	.handle_irq = gic_handle_irq,
+	//.handle_irq = gic_handle_irq,
 	.init_machine = doubleshot_init,
 	.timer = &msm_timer,
 	.init_early = doubleshot_charm_init_early,
-	.restart = msm_restart,
+	//.restart = msm_restart,
 MACHINE_END

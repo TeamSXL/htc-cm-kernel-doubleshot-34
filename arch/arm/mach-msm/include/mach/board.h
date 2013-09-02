@@ -799,5 +799,8 @@ extern int emmc_partition_read_proc(char *page, char **start, off_t off,
 extern int dying_processors_read_proc(char *page, char **start, off_t off,
 			   int count, int *eof, void *data);
 
+int processor_name_read_proc(char *page, char **start, off_t off,
+			   int count, int *eof, void *data);
+
 extern int get_partition_num_by_name(char *name);
 #endif
