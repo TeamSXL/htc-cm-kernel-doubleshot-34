@@ -4835,6 +4835,9 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 #ifdef CONFIG_SENSORS_MSM_ADC
 	msm_adc_pdata.target_hw = MSM_8x60;
 #endif
+#ifdef CONFIG_MICROP_COMMON
+	doubleshot_microp_init();
+#endif
 	spi_register_board_info(msm_spi_board_info, ARRAY_SIZE(msm_spi_board_info));
 	gpio_tlmm_config(msm_spi_gpio[0], GPIO_CFG_ENABLE);
 	gpio_tlmm_config(msm_spi_gpio[1], GPIO_CFG_ENABLE);

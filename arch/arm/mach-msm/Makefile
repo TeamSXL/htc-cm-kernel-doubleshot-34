@@ -370,7 +370,7 @@ obj-$(CONFIG_MACH_DOUBLESHOT) += board-doubleshot-keypad.o
 obj-$(CONFIG_MACH_DOUBLESHOT) += board-pyramid-camera.o htc_awb_cal.o
 obj-$(CONFIG_MACH_DOUBLESHOT) += htc_bdaddress.o board-doubleshot-rfkill.o
 obj-$(CONFIG_MACH_DOUBLESHOT) += board-doubleshot-mmc.o board-doubleshot-wifi.o htc_wifi_nvs.o
-obj-$(CONFIG_MACH_DOUBLESHOT) += htc_util.o
+obj-$(CONFIG_MACH_DOUBLESHOT) += htc_util.o board-doubleshot-microp.o
 obj-$(CONFIG_MACH_DOUBLESHOT) += board-pyramid-audio.o
 
 obj-$(CONFIG_MACH_SHOOTER) += board-shooter.o
