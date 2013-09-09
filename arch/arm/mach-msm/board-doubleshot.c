@@ -947,7 +947,7 @@ static void doubleshot_usb_dpdn_switch(int path)
 	}
 	}
 
-	#ifdef CONFIG_FB_MSM_HDMI_MHL
+	#ifdef CONFIG_FB_MSM_HDMI_MHL_SII9234
 	sii9234_change_usb_owner((path == PATH_MHL)?1:0);
 	#endif
 }
@@ -1030,6 +1030,8 @@ unsigned int doubleshot_get_engineerid(void)
 		}							\
 	}								\
 } while (0)
+
+#ifdef CONFIG_FB_MSM_HDMI_MHL_SII9234
 static int mhl_sii9234_all_power(bool enable)
 {
 	static struct regulator *reg_8058_l19 = NULL;
@@ -1109,6 +1111,7 @@ static int mhl_sii9234_all_power(bool enable)
 
 	return 0;
 }
+#endif
 #undef _GET_REGULATOR
 
 #ifdef CONFIG_FB_MSM_HDMI_MHL_SII9234
@@ -4650,6 +4653,7 @@ static void __init msm8x60_init_mmc(void)
 	sdcc_vreg_data[0].vccq_data->set_voltage_sup = 0;
 	sdcc_vreg_data[0].vccq_data->always_on = 1;
 
+	//msm8x60_sdc1_data.swfi_latency = msm_rpm_get_swfi_latency();
 	msm_add_sdcc(1, &msm8x60_sdc1_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
