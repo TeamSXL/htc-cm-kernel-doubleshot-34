@@ -2760,7 +2760,7 @@ static void __init msm8x60_calculate_reserve_sizes(void)
 
 static int msm8x60_paddr_to_memtype(unsigned int paddr)
 {
-	if (paddr >= 0x40000000 && paddr < 0x70000000)
+	if (paddr >= 0x40000000 && paddr < 0x60000000)
 		return MEMTYPE_EBI1;
 	if (paddr >= 0x38000000 && paddr < 0x40000000)
 		return MEMTYPE_SMI;
@@ -4388,7 +4388,7 @@ out:
 
 static int msm_sdcc_vreg_enable(struct sdcc_reg *vreg)
 {
-	int rc;
+	int rc = -1;
 
 	if (!vreg->enabled) {
 		rc = regulator_enable(vreg->reg);

@@ -134,7 +134,7 @@ static void doubleshot_panel_power(int on)
 			}
 		}
 
-		ret = regulator_set_voltage(l1_3v, 3100000, 3100000);
+		ret = regulator_set_voltage(l1_3v, 2850000, 2850000);
 		if (ret) {
 			pr_err("%s: error setting l1_3v voltage\n", __func__);
 			goto fail;
@@ -654,24 +654,24 @@ static struct tvenc_platform_data atv_pdata = {
 #define BRI_SETTING_DEF                 143
 #define BRI_SETTING_MAX                 255
 
-#define PWM_MIN              		9	/* 3.5% of max pwm */
-#define PWM_DEFAULT			140	/* 55% of max pwm  */
-#define PWM_MAX				255	/* 100% of max pwm */
+#define PWM_MIN              		7	//9	/* 3.5% of max pwm */
+#define PWM_DEFAULT			120	//140	/* 55% of max pwm  */
+#define PWM_MAX				240	//255	/* 100% of max pwm */
 
 static unsigned char doubleshot_shrink_pwm(int val)
 {
 	unsigned char shrink_br;
 	if (val <= 0) {
 		shrink_br = 0;
-	} else if (val > 0 && (val < BRI_SETTING_MIN))
+	} else if (val > 0 && (val < BRI_SETTING_MIN)) {
 		shrink_br = PWM_MIN;
-	else if ((val >= BRI_SETTING_MIN) && (val <= BRI_SETTING_DEF))
+	} else if ((val >= BRI_SETTING_MIN) && (val <= BRI_SETTING_DEF)) {
 		shrink_br = (PWM_DEFAULT - PWM_MIN) * (val - BRI_SETTING_MIN) /
 		(BRI_SETTING_DEF - BRI_SETTING_MIN) + PWM_MIN;
-	else if ((val > BRI_SETTING_DEF) && (val <= BRI_SETTING_MAX))
+	} else if ((val > BRI_SETTING_DEF) && (val <= BRI_SETTING_MAX)) {
 		shrink_br = (PWM_MAX - PWM_DEFAULT) * (val - BRI_SETTING_DEF) /
 		(BRI_SETTING_MAX - BRI_SETTING_DEF) + PWM_DEFAULT;
-	else
+	} else
 		shrink_br = PWM_MAX;
 
 	pr_debug("%s: brightness orig=%d, transformed=%d\n", __func__, val, shrink_br);
