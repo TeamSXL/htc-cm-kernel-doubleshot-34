@@ -2,6 +2,8 @@
 # Makefile for the Linux proc filesystem routines.
 #
 
+KBUILD_CFLAGS   += -Wno-format
+
 obj-y   += proc.o
 
 proc-y			:= nommu.o task_nommu.o

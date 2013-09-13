@@ -98,7 +98,9 @@ void show_mem(unsigned int filter)
 	int shared = 0, cached = 0, slab = 0, i;
 	struct meminfo * mi = &meminfo;
 	unsigned long kgsl_alloc = kgsl_get_alloc_size(0);
+	#ifdef CONFIG_ION
 	int ion_alloc = ion_iommu_heap_dump_size();
+	#endif
 
 	printk("Mem-info:\n");
 	show_free_areas(filter);
@@ -144,7 +146,9 @@ void show_mem(unsigned int filter)
 	printk("%d pages shared\n", shared);
 	printk("%d pages swap cached\n", cached);
 	printk("KGSL_ALLOC: %8lu kB\n", kgsl_alloc >> 10);
+	#ifdef CONFIG_ION
 	printk("ION_ALLOC:  %8d kB\n", ion_alloc >> 10);
+	#endif
 }
 
 static void __init find_limits(unsigned long *min, unsigned long *max_low,
