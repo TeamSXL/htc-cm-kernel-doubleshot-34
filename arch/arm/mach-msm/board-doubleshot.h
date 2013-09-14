@@ -97,8 +97,11 @@
 #define MSM_FB_EXT_BUF_SIZE  \
 		(roundup((720 * 576 * 2), 4096) * 2) /* 2 bpp x 2 pages */
 #else
-#define MSM_FB_EXT_BUFT_SIZE	0
 #endif
+#endif
+
+#ifndef CONFIG_FB_MSM_HDMI_MSM_PANEL
+#define MSM_FB_EXT_BUF_SIZE	0
 #endif
 
 #ifdef CONFIG_FB_MSM_OVERLAY0_WRITEBACK

@@ -25,6 +25,11 @@ obj-y += mdp_ppp_v20.o
 endif
 endif
 
+ifeq ($(CONFIG_FB_MSM_DTV),y)
+obj-y += mdp4_dtv.o
+obj-y += mdp4_overlay_dtv.o
+endif
+
 ifeq ($(CONFIG_FB_MSM_OVERLAY),y)
 obj-y += mdp4_overlay.o
 obj-y += mdp4_overlay_lcdc.o
@@ -39,11 +44,6 @@ obj-y += mdp_dma_lcdc.o
 endif
 
 obj-$(CONFIG_FB_MSM_MDP303) += mdp_dma_dsi_video.o
-
-ifeq ($(CONFIG_FB_MSM_DTV),y)
-obj-y += mdp4_dtv.o
-obj-y += mdp4_overlay_dtv.o
-endif
 
 obj-y += mdp_dma.o
 obj-y += mdp_dma_s.o

@@ -978,6 +978,13 @@ static struct platform_device cable_detect_device = {
 	},
 };
 
+static unsigned int engineerid;
+
+unsigned int doubleshot_get_engineerid(void)
+{
+	return engineerid;
+}
+
 #ifdef CONFIG_FB_MSM_HDMI_MHL
 static uint32_t msm_hdmi_off_gpio[] = {
 	GPIO_CFG(170,  0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
@@ -1011,13 +1018,6 @@ static void mhl_sii9234_1v2_power(bool enable)
 	}
 
 	prev_on = enable;
-}
-
-static unsigned int engineerid;
-
-unsigned int doubleshot_get_engineerid(void)
-{
-	return engineerid;
 }
 
 #define _GET_REGULATOR(var, name) do {					\
