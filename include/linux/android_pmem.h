@@ -101,6 +101,8 @@ struct android_pmem_platform_data
 	
 	unsigned long size;
 
+	unsigned long start;
+
 	enum pmem_allocator_type allocator_type;
 	unsigned int quantum;
 
