@@ -8,7 +8,7 @@ mkdir flashable/zip/system/ && mkdir flashable/zip/system/lib/ && mkdir flashabl
 cd flashable/zip/kernel/
 rm -rf zImage
 cd ../../..
-make clean | tee build_log.txt
+#make clean | tee build_log.txt
 echo >> build_log.txt
 echo Writing configs ...
 make doubleshot_defconfig | tee -a build_log.txt
