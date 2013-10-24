@@ -131,6 +131,7 @@ static int mdp_bl_scale_config(struct msm_fb_data_type *mfd,
 						struct mdp_bl_scale_data *data);
 static void msm_fb_scale_bl(__u32 *bl_lvl);
 
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 #define NUM_ALLOC 3
 #define ION_CLIENT_FB_PJT "msmfb_projector"
 static struct ion_client *usb_pjt_client = NULL;
@@ -158,6 +159,7 @@ char *get_fb_addr(void)
 	printk(KERN_ERR "%s: <FATAL> Impossible to be here.\n", __func__);
 	return 0;
 }
+#endif
 
 
 #ifdef MSM_FB_ENABLE_DBGFS

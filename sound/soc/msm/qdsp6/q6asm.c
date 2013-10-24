@@ -255,13 +255,11 @@ int q6asm_audio_client_buf_free(unsigned int dir,
 						port->buf[cnt].handle);
 				ion_client_destroy(port->buf[cnt].client);
 #else
-				/*
 				pr_debug("%s:data[%p]phys[%p][%p] cnt[%d] mem_buffer[%p]\n",
 					__func__, (void *)port->buf[cnt].data,
 					(void *)port->buf[cnt].phys,
 					(void *)&port->buf[cnt].phys, cnt,
 					(void *)port->buf[cnt].mem_buffer);
-				
 				if (IS_ERR((void *)port->buf[cnt].mem_buffer))
 					pr_err("%s:mem buffer invalid, error = %ld\n",
 					 __func__,
@@ -272,7 +270,6 @@ int q6asm_audio_client_buf_free(unsigned int dir,
 						pr_err("%s: unmap buffer failed\n",
 								 __func__);
 				}
-				*/
 				free_contiguous_memory_by_paddr(
 					port->buf[cnt].phys);
 
@@ -325,14 +322,12 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 			(void *)port->buf[0].client,
 			(void *)port->buf[0].handle);
 #else
-		/*
 		pr_debug("%s:data[%p]phys[%p][%p] mem_buffer[%p]\n",
 			__func__,
 			(void *)port->buf[0].data,
 			(void *)port->buf[0].phys,
 			(void *)&port->buf[0].phys,
 			(void *)port->buf[0].mem_buffer);
-		
 		if (IS_ERR((void *)port->buf[0].mem_buffer))
 			pr_err("%s:mem buffer invalid, error = %ld\n",
 				 __func__,
@@ -342,7 +337,6 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 				port->buf[0].mem_buffer) < 0)
 				pr_err("%s: unmap buffer failed\n", __func__);
 		}
-		*/
 		free_contiguous_memory_by_paddr(port->buf[0].phys);
 #endif
 	}

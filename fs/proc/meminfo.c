@@ -28,11 +28,7 @@ void show_meminfo(void)
 	long cached;
 	unsigned long pages[NR_LRU_LISTS];
 	int lru;
-	unsigned long ion_alloc = 0;
-	#ifdef CONFIG_ION
-	ion_alloc  = ion_iommu_heap_dump_size();
-	#else
-	#endif
+	unsigned long ion_alloc  = ion_iommu_heap_dump_size();
 	unsigned long kgsl_alloc = kgsl_get_alloc_size(1);
 	unsigned long subtotal;
 
@@ -231,10 +227,8 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 		vmi.usermap >> 10,
 		vmi.vpages >> 10,
 		vmi.largest_chunk >> 10,
-		kgsl_alloc >> 10
-#ifdef CONFIG_ION
-		,ion_iommu_heap_dump_size() >> 10
-#endif
+		kgsl_alloc >> 10,
+		ion_iommu_heap_dump_size() >> 10
 #ifdef CONFIG_MEMORY_FAILURE
 		,atomic_long_read(&mce_bad_pages) << (PAGE_SHIFT - 10)
 #endif
