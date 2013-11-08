@@ -365,6 +365,13 @@ int snd_soc_dapm_ignore_suspend(struct snd_soc_dapm_context *dapm,
 				const char *pin);
 void snd_soc_dapm_auto_nc_codec_pins(struct snd_soc_codec *codec);
 
+/* dapm path query */
+int snd_soc_dapm_get_connected_widgets_type(struct snd_soc_dapm_context *dapm,
+                const char *stream_name, struct snd_soc_dapm_widget_list **list,
+                int stream, enum snd_soc_dapm_type type);
+int snd_soc_dapm_get_connected_widgets_name(struct snd_soc_dapm_context *dapm,
+                const char *name, struct snd_soc_dapm_widget_list **list, int stream);
+
 void dapm_mark_dirty(struct snd_soc_dapm_widget *w, const char *reason);
 
 struct snd_soc_dapm_widget *snd_soc_get_codec_widget(struct snd_soc_card *card,
@@ -449,7 +456,8 @@ struct snd_soc_dapm_widget {
 	unsigned char shift;			
 	unsigned int saved_value;		
 	unsigned int value;				
-	unsigned int mask;			
+	unsigned int mask;	
+	unsigned int hops;		
 	unsigned int on_val;			
 	unsigned int off_val;			
 	unsigned char power:1;			
@@ -516,6 +524,8 @@ struct snd_soc_dapm_context {
 	
 	enum snd_soc_bias_level target_bias_level;
 	struct list_head list;
+
+	int num_valid_paths;
 
 	int (*stream_event)(struct snd_soc_dapm_context *dapm, int event);
 
