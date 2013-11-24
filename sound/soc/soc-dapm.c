@@ -620,23 +620,6 @@ static inline void dapm_clear_walk(struct snd_soc_dapm_context *dapm)
 		p->walked = 0;
 }
 
-static void dapm_clear_paths(struct snd_soc_dapm_context *dapm)
-{
-        struct snd_soc_dapm_path *p;
-        struct snd_soc_dapm_widget *w;
-        struct list_head *l;
-
-        list_for_each(l, &dapm->card->paths) {
-                p = list_entry(l, struct snd_soc_dapm_path, list);
-                p->weak = 0;
-        }
-        list_for_each(l, &dapm->card->widgets) {
-                w = list_entry(l, struct snd_soc_dapm_widget, list);
-                w->hops = 0;
-        }
-        dapm_clear_walk(dapm);
-}
-
 static int dapm_list_add_widget(struct snd_soc_dapm_widget_list **list,
 	struct snd_soc_dapm_widget *w)
 {
@@ -922,101 +905,6 @@ static int dapm_get_capture_paths(struct snd_soc_dapm_context *dapm,
 
 	return paths;
 }
-
-/**
- * snd_soc_dapm_get_connected_widgets_type - query audio path and it's widgets.
- * @dapm: the dapm context.
- * @stream_name: stream name.
- * @list: list of active widgets for this stream.
- * @stream: stream direction.
- * @type: Initial widget type.
- *
- * Queries DAPM graph as to whether an valid audio stream path exists for
- * the DAPM stream and initial widget type specified. This takes into account
- * current mixer and mux kcontrol settings. Creates list of valid widgets.
- *
- * Returns the number of valid paths or negative error.
- */
-int snd_soc_dapm_get_connected_widgets_type(struct snd_soc_dapm_context *dapm,
-                const char *stream_name, struct snd_soc_dapm_widget_list **list,
-                int stream, enum snd_soc_dapm_type type)
-{
-        struct snd_soc_dapm_widget *w;
-        int paths;
-
-        /* get stream root widget AIF, DAC or ADC from stream string and direction */
-        list_for_each_entry(w, &dapm->card->widgets, list) {
-
-                if (!w->sname)
-                        continue;
-
-                if (w->id != type)
-                        continue;
-
-                if (strstr(w->sname, stream_name))
-                        goto found;
-        }
-        dev_err(dapm->dev, "root widget not found\n");
-        return 0;
-
-found:
-        dapm->num_valid_paths = 0;
-        *list = NULL;
-        if (stream == SNDRV_PCM_STREAM_PLAYBACK)
-                paths = dapm_get_playback_paths(dapm, w, list);
-        else
-                paths = dapm_get_capture_paths(dapm, w, list);
-
-        dapm_clear_paths(dapm);
-        return paths;
-}
-/**
- * snd_soc_dapm_get_connected_widgets_name - query audio path and it's widgets.
- * @dapm: the dapm context.
- * @name: initial widget name.
- * @list: list of active widgets for this stream.
- * @stream: stream direction.
- *
- * Queries DAPM graph as to whether an valid audio stream path exists for
- * the initial widget specified by name. This takes into account
- * current mixer and mux kcontrol settings. Creates list of valid widgets.
- *
- * Returns the number of valid paths or negative error.
- */
-int snd_soc_dapm_get_connected_widgets_name(struct snd_soc_dapm_context *dapm,
-                const char *name, struct snd_soc_dapm_widget_list **list, int stream)
-{
-        struct snd_soc_dapm_widget *w;
-        int paths;
-
-        /* get stream root widget AIF, DAC or ADC from stream string and direction */
-        list_for_each_entry(w, &dapm->card->widgets, list) {
-
-                if (strstr(w->name, name))
-                        goto found;
-        }
-        dev_err(dapm->dev, "root widget %s not found\n", name);
-        return 0;
-
-found:
-        if (stream == SNDRV_PCM_STREAM_PLAYBACK)
-                paths = dapm_get_playback_paths(dapm, w, list);
-        else
-                paths = dapm_get_capture_paths(dapm, w, list);
-
-        dapm_clear_paths(dapm);
-        return paths;
-}
-
-/**
- * snd_soc_dapm_set_bias_level - set the bias level for the system
- * @dapm: DAPM context
- * @level: level to configure
- *
- * Configure the bias (power) levels for the SoC audio device.
- *
- * Returns 0 for success else error.
- */
 
 int snd_soc_dapm_dai_get_connected_widgets(struct snd_soc_dai *dai, int stream,
 	struct snd_soc_dapm_widget_list **list)
