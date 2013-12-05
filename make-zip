@@ -1,19 +1,12 @@
 #!/bin/bash
 
-rm build_log.txt >>build_log.txt
-echo Cleaning workspace ...
 rm -rf *.zip
 rm -rf flashable/zip/system
 mkdir flashable/zip/system/ && mkdir flashable/zip/system/lib/ && mkdir flashable/zip/system/lib/modules/
 cd flashable/zip/kernel/
 rm -rf zImage
 cd ../../..
-make clean | tee build_log.txt
-echo >> build_log.txt
-echo Writing configs ...
-make doubleshot_defconfig | tee -a build_log.txt
-echo >> build_log.txt
-make -j4 | tee -a build_log.txt
+
 if [ ! -f arch/arm/boot/zImage ];
 then
     echo An error occured in the build process, aborting...
