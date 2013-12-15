@@ -4591,7 +4591,7 @@ static unsigned int msm8x60_sdcc_slot_status(struct device *dev)
 static unsigned int doubleshot_emmcslot_type = MMC_TYPE_MMC;
 static struct mmc_platform_data msm8x60_sdc1_data = {
 	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
-	.translate_vdd  = msm_sdcc_setup_power,
+	/*.translate_vdd  = msm_sdcc_setup_power,*/
 #ifdef CONFIG_MMC_MSM_SDC1_8_BIT_SUPPORT
 	.mmc_bus_width  = MMC_CAP_8_BIT_DATA,
 #else
